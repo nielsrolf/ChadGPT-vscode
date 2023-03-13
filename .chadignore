@@ -1,0 +1,5 @@
+test/
+prompts/
+.vscode/
+**/*.md
+*.md

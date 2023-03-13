@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src vscode-resource: 'unsafe-inline'; style-src vscode-resource: 'unsafe-inline';">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChadGPT</title>
+
+<style>
+  /* Your CSS styles go here */
+  body {
+    font-family: sans-serif;
+  }
+
+  .chat-container {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .chat-messages {
+    overflow-y: scroll;
+    height: 70%;
+    width: 100%;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+  }
+
+  .chat-row-assistant {
+    border-bottom: 1px solid #22ccbb;
+    padding: 10px;
+    --tw-bg-opacity: 1;
+    background-color: rgba(68,70,84,var(--tw-bg-opacity));
+    width: 100%;
+  }
+
+  .chat-row-system {
+    border-bottom: 1px solid #22ccbb;
+    padding: 10px;
+    --tw-bg-opacity: 1;
+    background-color: rgba(15, 30, 30,var(--tw-bg-opacity));
+    width: 100%;
+  }
+
+  .chat-row-user {
+    border-bottom: 1px solid #22ccbb;
+    padding: 10px;
+    --tw-bg-opacity: 1;
+    background-color: rgba(52,53,65,var(--tw-bg-opacity));
+  }
+  
+  .chat-form {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 10px;
+  }
+
+  .chat-input {
+    flex-grow: 1;
+    margin-right: 10px;
+    padding: 10px;
+    border: none;
+    border-radius: 5px;
+  }
+
+  .chat-button {
+    background-color: #007acc;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    padding: 10px;
+    cursor: pointer;
+  }
+
+  .chat-button:hover {
+    background-color: #0062a3;
+  }
+</style>
+
+</head>
+<body>
+  <div class="chat-container">
+    <div class="chat-messages"></div>
+    <form class="chat-form">
+      <input class="chat-input" type="text" placeholder="Type your message">
+      <button class="chat-button" type="submit">Send</button>
+    </form>
+  </div>
+
+  <script>
+    // Your JavaScript code goes here
+    const vscode = acquireVsCodeApi();// Load the path module using the vscode-nls library
+
+      class Chat {
+        constructor() {
+          this.messages = [];
+          this.chatMessages = document.querySelector('.chat-messages');
+          this.chatForm = document.querySelector('.chat-form');
+          this.chatInput = document.querySelector('.chat-input');
+          this.chatForm.addEventListener('submit', this.handleFormSubmit.bind(this));
+        }
+
+        addMessage(sender, message, timestamp = Date.now()) {
+          // use the css class depending on the sender
+          const messageElement = document.createElement('div');
+          console.log(sender);
+          messageElement.classList.add('chat-row-' + sender);
+          const messageLineBreaks = message.replace(/\n/g, '<br/>');
+          messageElement.innerHTML = `<strong>${sender}: </strong><br/>${messageLineBreaks}`;
+          this.chatMessages.appendChild(messageElement);
+          this.messages.push({ sender, message, timestamp });
+          // scroll to the bottom of the chat
+          messageElement.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        handleFormSubmit(event) {
+          event.preventDefault();
+          const message = this.chatInput.value;
+          this.chatInput.value = '';
+          this.addMessage('user', message);
+          vscode.postMessage({
+            type: 'message',
+            'message': message,
+            'sender': sender,
+          });
+        }
+      }
+
+      const chat = new Chat();
+
+      window.addEventListener('message', (event) => {
+        const message = event.data;
+        chat.addMessage(message.sender, message.message);
+      });
+    </script>
+  </body>
+</html>

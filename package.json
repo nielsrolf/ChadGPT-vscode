@@ -1,0 +1,68 @@
+{
+  "name": "chadgpt",
+  "displayName": "chadgpt",
+  "description": "ChatGPT copilot",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.76.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "publisher": "Niels Warncke",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nielsrolf/ChadGPT-vscode"
+  },
+  "activationEvents": [],
+  "main": "./extension.js",
+  "contributes": {
+    "configuration": {
+      "properties": {
+        "chadgpt.apiKey": {
+          "type": "string",
+          "description": "API key for the OpenAI API"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "chadgpt.implementFeature",
+        "title": "ChadGPT: Implement feature"
+      },
+      {
+        "command": "chadgpt.editSelection",
+        "title": "ChadGPT: Edit selected code"
+      }
+    ],
+    "views": {
+      "chadGPTView": [
+        {
+          "id": "workbench.view.extension.chadGPTView",
+          "name": "ChadGPT",
+          "when": "view.container == explorerView",
+          "extensionPath": "${workspaceRoot}"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "pretest": "npm run lint",
+    "test": "node ./test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/glob": "^8.1.0",
+    "@types/mocha": "^10.0.1",
+    "@types/node": "16.x",
+    "@types/vscode": "^1.76.0",
+    "@vscode/test-electron": "^2.2.3",
+    "eslint": "^8.34.0",
+    "glob": "^8.1.0",
+    "mocha": "^10.2.0",
+    "typescript": "^4.9.5"
+  },
+  "dependencies": {
+    "openai": "^3.2.1"
+  }
+}
