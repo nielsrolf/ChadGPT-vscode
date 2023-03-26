@@ -119,7 +119,8 @@ async function debugCommand(context) {
 	// step 4: init the webview
 	await createPanel(context);
 	// step 5: call performTask
-	await performTask(prompt);
+	const fileDiffs = await performTask(prompt);
+	await applyDiffs(fileDiffs);
 }
 
 

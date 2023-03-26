@@ -160,17 +160,17 @@ async function restartSandbox() {
 
 
 async function runCommandsInSandbox(commands) {
-    await runInSandbox('echo chadgpt-sandbox-start');
     // set the vscode home dir as cwd for the command
     const homeDir = vscode.workspace.workspaceFolders[0].uri.fsPath;
     await runInSandbox(`cd ${homeDir}`);
+    await runInSandbox('echo chadgpt-sandbox-start');
     for (const command of commands) {
         await runInSandbox(command);
     }
     const output = await runInSandbox('chadgpt-sandbox-end');
     // return the last captured output
     return output.split('chadgpt-sandbox-start').slice(-1)[0]
-                 .split('chadgpt-sandbox-end')[0].trim();
+                 .split('chadgpt-sandbox-end')[0];
 }
 
 // runCommandsInSandbox(['which python', 'python music.py']).then((output) => {

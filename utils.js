@@ -73,7 +73,7 @@ const getShortContent = async (file) => {
 			f.push(fileContents[i]);
 		}
 	}
-	const message = `- ${file}\n\`\`\`${f.join('\n')}\`\`\``
+	const message = `- ${file}\n\`\`\`${f.join('\n')}\`\`\`To see the full code, specify the line range in the format ${file}:<startLine>-<endLine>.`
 	return {
 		filename: file,
 		request: `- ${file}`,

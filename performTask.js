@@ -57,7 +57,7 @@ const parseResponseFileDiffs = async (responseMsg) => {
 		let endLine = 1000000;
 		const filepath = lineRange.split("->")[0].split(":")[0];
 		if (lineRange.indexOf(":") !== -1) {
-			if (lineRange.split("->")[0].indexOf("-") !== -1) {
+			if (lineRange.split("->")[0].split(":")[1].indexOf("-") !== -1) {
 				[startLine, endLine] = lineRange.split("->")[0].split(":")[1].split("-");
 			} else {
 				startLine = lineRange.split("->")[0].split(":")[1];
@@ -171,7 +171,7 @@ const completeAndParse = async (messages, sentContext, messageId) => {
 	try {
 		return await parseResponse(responseMsg, sentContext);
 	} catch (e) {
-		const errorMsg = `Dear assistant, your response could not be parsed: (${e})\n${responseFormat}`;
+		const errorMsg = `Dear assistant, your response could not be parsed: (${e})\nRemember to follow the response format described earlier and don't ask questions, instead use the '# Required context' or '# Execute' sections to request more information.`;
 		const retryMessages = [...messages, {
 			"role": "assistant",
 			"content": responseMsg
@@ -235,7 +235,9 @@ const performTask = async (prompt, currentFile) => {
 		currentMessageId = `${currentMessageId}.${Date.now()}`;
 		await sendChatMessage("system", response.displayMessage, currentMessageId);
 		if (response.fileDiffs.length > 0 && response.requiredContext.length === 0) {
-			return response.fileDiffs
+			console.log("returning from performTask: ", response.fileDiffs);
+			return response.fileDiffs;
+			// return validateResponse(response.fileDiffs, prompt);
 		} else if (response.requiredContext.length > 0) {
 			messages.push({
 				"role": "assistant",

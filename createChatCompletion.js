@@ -42,7 +42,8 @@ const createChatCompletion = async (messages) => {
 	let responseMsg;
 	try {
 		const completion = await openai.createChatCompletion({
-			model: "gpt-3.5-turbo",
+			// model: "gpt-3.5-turbo",
+			model: "gpt-4",
 			messages: messages.map(x => {
 				return {
 					"role": x.role,

@@ -40,7 +40,7 @@ Once you have enough context to perform the request, you suggest file edits. You
 - Execute: one or more commands you want to run in the sandbox. The output will be sent back to you and you can use it to make suggestions.
 
 The sandbox has the current working dir mounted, so changes to files apply to the current working dir.
-Usually, you ask at least twice or more for required context before you suggest edits or commands.
+You ask at least twice or more for required context before you suggest edits or commands.
 
 ${responseFormat}
 `;
