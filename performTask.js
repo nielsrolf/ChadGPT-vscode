@@ -1,9 +1,20 @@
-const vscode = require('vscode');
-const { implementPrompt } = require('./prompts.js');
-const { getAdditionalContext, getRepoContext } = require('./utils.js');
+let vscode;
+let getAdditionalContext, getRepoContext;
+// try {
+// 	vscode = require('vscode');
+// 	({ getAdditionalContext, getRepoContext } = require('./utils.js'));
+// } catch (e) {
+// 	console.log("Could not load vscode");
+// 	({ getAdditionalContext, getRepoContext } = require('./mock_utils.js'));
+
+// }
+vscode = require('vscode');
+({ getAdditionalContext, getRepoContext } = require('./utils.js'));
+const { implementPrompt, responseFormat } = require('./prompts.js');
 const { sendChatMessage } = require('./frontend.js');
 const { runCommandsInSandbox } = require('./runInSandbox.js');
 const { createChatCompletion } = require('./createChatCompletion');
+
 
 
 
@@ -110,7 +121,8 @@ const parseResponse = async (responseMsg, sentContext) => {
 		fileDiffs = await parseResponseFileDiffs(responseMsg);
 	}
 	if (responseMsg.indexOf('# Execute') !== -1) {
-		// parse required context	
+		// parse required context
+		console.log("parsing sandbox commands", responseMsg);
 		({sandboxCommands, sandboxCommandsWithOutput} = await parseResponseSandboxCommands(responseMsg));
 	}
 	if (requiredContext.length > 0 || fileDiffs.length > 0 || sandboxCommands.length > 0) {
@@ -132,6 +144,21 @@ const parseResponse = async (responseMsg, sentContext) => {
 }
 
 
+const testParseResponseForRequiredContext = async () => {
+	const responseMsg = `"My apologies. 
+
+	# Required context
+	- /Users/nielswarncke/Documents/ChadGPT-vscode/test/performTask.test.js:1-20
+	- /Users/nielswarncke/Documents/ChadGPT-vscode/frontend.js
+	- /Users/nielswarncke/Documents/ChadGPT-vscode/performTask.js:98-133"`
+	const sentContext = [];
+	const parsedResponse = await parseResponse(responseMsg, sentContext);
+	console.log({ parsedResponse });
+}
+
+// testParseResponseForRequiredContext();
+
+
 const completeAndParse = async (messages, sentContext, messageId) => {
 	const responseMsg = await createChatCompletion(messages);
 	const responseMsgId = `${messageId}.${Date.now()}`;
@@ -140,7 +167,7 @@ const completeAndParse = async (messages, sentContext, messageId) => {
 	try {
 		return await parseResponse(responseMsg, sentContext);
 	} catch (e) {
-		const errorMsg = `Error: response could not be parsed: (${e})\nPlease respond exactly in the provided format (see above) and keep in mind that the response is automatically parsed before being shown to the user.`;
+		const errorMsg = `Dear assistant, your response could not be parsed: (${e})\n${responseFormat}`;
 		const retryMessages = [...messages, {
 			"role": "assistant",
 			"content": responseMsg

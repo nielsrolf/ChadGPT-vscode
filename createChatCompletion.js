@@ -1,4 +1,9 @@
-const vscode = require('vscode');
+let vscode;
+try {
+	vscode = require('vscode');
+} catch (e) {
+	console.log("Could not load vscode");
+}
 const { Configuration, OpenAIApi } = require("openai");
 
 
@@ -46,6 +51,7 @@ const createChatCompletion = async (messages) => {
 			})
 		});
 		responseMsg = completion.data.choices[0].message.content.split("# Explanation")[0].trim();
+		console.log("responseMsg: ", responseMsg);
 	} catch (e) {
 		console.log(e);
 		throw new Error("OpenAI API error");

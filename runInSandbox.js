@@ -1,7 +1,12 @@
 const Docker = require('dockerode');
 const fs = require('fs');
 const tar = require('tar-fs');
-const vscode = require('vscode');
+let vscode;
+try {
+	vscode = require('vscode');
+} catch (e) {
+	console.log("Could not load vscode");
+}
 
 
 const docker = new Docker({
@@ -168,11 +173,11 @@ async function runCommandsInSandbox(commands) {
                  .split('chadgpt-sandbox-end')[0].trim();
 }
 
-runCommandsInSandbox(['which python', 'python music.py']).then((output) => {
-    console.log(output);
-}).catch((err) => {
-    console.log(err);
-});
+// runCommandsInSandbox(['which python', 'python music.py']).then((output) => {
+//     console.log(output);
+// }).catch((err) => {
+//     console.log(err);
+// });
 
 
 module.exports = {

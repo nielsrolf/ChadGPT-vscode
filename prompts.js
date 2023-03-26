@@ -1,7 +1,8 @@
 
-const responseFormat = `If you need more context, you respond in the following format:
+const responseFormat = `Your response must be in one of the following formats:
+Format 1:
 ---
-<your thought, if needed>
+<your thought, not shown to the user>
 # Required context
 - path/to/file:<startLine>-<endLine>
 # Explanation
@@ -9,7 +10,7 @@ const responseFormat = `If you need more context, you respond in the following f
 ---
 If you don't specify a line range, you will get a summary of the file and you may later ask for specific lines.
 
-If you have enough context, you respond in the following format:
+Format 2:
 ---
 <your thought, not shown to the user>
 # Edits
@@ -21,14 +22,15 @@ If you have enough context, you respond in the following format:
 <your explanation>
 ---
 
-If you want to run a command in the sandbox, you respond in the following format:
+Format 3:
 ---
 # Execute
 \`\`\`
 <commands to run in the sandbox>
 \`\`\`
 ---
-You respond exactly in one of these formats. You suggest the first edit only after you have received all required context.`;
+You respond exactly in one of these formats. You suggest the first edit only after you have received all required context. You don't include '\`\`\`' anywhere but where the format specifies it. Thank you!`;
+
 
 
 const implementPrompt = `You are a helpful coding assistant. 

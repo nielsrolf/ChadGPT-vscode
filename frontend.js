@@ -1,4 +1,9 @@
-const vscode = require('vscode');
+let vscode;
+try {
+	vscode = require('vscode');
+} catch (e) {
+	console.log("Could not load vscode");
+}
 const path = require('path');
 const fs = require('fs');
 const {createChatCompletion} = require('./createChatCompletion');

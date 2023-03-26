@@ -1,4 +1,9 @@
-const vscode = require('vscode');
+let vscode;
+try {
+	vscode = require('vscode');
+} catch (e) {
+	console.log("Could not load vscode");
+}
 const path = require('path');
 
 
@@ -49,8 +54,14 @@ const isIndented = (numberedLine) => {
 
 
 const getShortContent = async (file) => {
-	const document = await vscode.workspace.openTextDocument(file);
-	const fileContents = addLineNumbers(document.getText()).split('\n');
+
+	let fileContents = 'File does not exist';
+	let lineCount = 0;
+	try {
+		const document = await vscode.workspace.openTextDocument(file);
+		fileContents = addLineNumbers(document.getText()).split('\n');
+		lineCount = document.lineCount;
+	} catch (e) { }
 	// include only lines that are not indented. Note that the line numbers are already added. Insert a line with '...' where the code is removed
 	const f = [];
 	for (let i = 0; i < fileContents.length; i++) {
@@ -70,7 +81,7 @@ const getShortContent = async (file) => {
 		code_before: f.join('\n'),
 		range: {
 			start: { line: 0, character: 0 },
-			end: { line: document.lineCount, character: 0 }
+			end: { line: lineCount, character: 0 }
 		}
 	};
 }
@@ -96,15 +107,23 @@ const getAdditionalContext = async (requiredContext) => {
 	const [filepath, lineRange] = requiredContext.split(':');
 	let [startLine, endLine] = lineRange.split('-');
 	endLine = endLine || startLine;
-	const document = await vscode.workspace.openTextDocument(filepath);
-	const fileContents = addLineNumbers(document.getText());
+	let fileContents = 'File does not exist';
+	let code_before = '';
+	try {
+		const document = await vscode.workspace.openTextDocument(filepath);
+		fileContents = addLineNumbers(document.getText());
+		code_before = document.getText().split('\n').slice(startLine - 1, endLine).join('\n');
+	} catch (e) {
+		console.log(e);
+	 }
+
 	const requiredCode = fileContents.split('\n').slice(startLine - 1, endLine).join('\n');
 	const message = `- ${filepath}:${startLine}-${endLine}\n\`\`\`${requiredCode}\`\`\``;
 	return {
 		filename: filepath,
 		request: requiredContext,
 		message: message,
-		code_before: document.getText().split('\n').slice(startLine - 1, endLine).join('\n'),
+		code_before: code_before,
 		range: {
 			start: { line: startLine - 1, character: 0 },
 			end: { line: endLine, character: 0 }
