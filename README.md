@@ -10,6 +10,15 @@ Not a maintained or reliable thing at this moment, but a very cool proof of conc
 - `ChadGPT: debug command` - runs a command in a sandbox and generates file diffs until there is no more error
 - `ChadGPT: restart sandbox` - kills the sandbox container, rebuild the image and restarts the container
 
+## Deb setup:
+- build the frontend:
+```
+cd chadgpt-webview
+npm run build
+```
+- Install the vscode extension from this folder via cmd+shift+P + Developer: Install extension from path
+
+
 ### Controlling which files are visible
 Files mentioned in `.gitignore` and `.chadignore` are ignored. Files mentioned in `.chadinclude` are visible, the latter has priority over ignore rules and can be used to make docs available.
 
