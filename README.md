@@ -10,12 +10,14 @@ Not a maintained or reliable thing at this moment, but a very cool proof of conc
 - `ChadGPT: debug command` - runs a command in a sandbox and generates file diffs until there is no more error
 - `ChadGPT: restart sandbox` - kills the sandbox container, rebuild the image and restarts the container
 
-## Deb setup:
+## Dev setup:
 - build the frontend:
 ```
 cd chadgpt-webview
+npm install
 npm run build
 ```
+- install the dependencies of the extension: `npm install`
 - Install the vscode extension from this folder via cmd+shift+P + Developer: Install extension from path
 
 
