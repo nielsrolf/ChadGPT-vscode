@@ -146,7 +146,7 @@ const implementFeature = async (context) => {
 	console.log("prompt: ", prompt);
 	await createPanel(context);
 	console.log("created panel");
-	const fileDiffs = await performTask(prompt);
+	const fileDiffs = await performTask(prompt, currentFilePath);
 	console.log("file diffs: ", fileDiffs)
 	await applyDiffs(fileDiffs);
 	// todo: sanity check that the file diffs are what chadgpt wanted

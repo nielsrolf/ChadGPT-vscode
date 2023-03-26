@@ -3,3 +3,7 @@ node_modules
 *.vsix
 .chadgpt/
 .vscode/
+
+example.py
+example2.py
+music.py

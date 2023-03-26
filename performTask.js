@@ -53,7 +53,7 @@ const parseResponseFileDiffs = async (responseMsg) => {
 	const fileDiffsArray = fileDiffs.split('\n- ').filter(x => x !== '').map(x => x.trim());
 	const parsedFileDiffs = await Promise.all(fileDiffsArray.map(async x => {
 		const [lineRange, ...newLines] = x.split('\n');
-		let startLine = 0;
+		let startLine = 1;
 		let endLine = 1000000;
 		const filepath = lineRange.split("->")[0].split(":")[0];
 		if (lineRange.indexOf(":") !== -1) {
@@ -74,7 +74,11 @@ const parseResponseFileDiffs = async (responseMsg) => {
 			.replace('```py', '```')
 			.split('```')
 			.slice(1, -1)
-			.join('```');
+			.join('```')
+			.split('\n')
+			// remove line numbers if present (example: 12:some code -> some code), using a regex
+			.map(x => x.replace(/^[0-9]+:/, ''))
+			.join('\n');
 
 		const document = await vscode.workspace.openTextDocument(filepath);
 		const codeBefore = document.getText().split('\n').slice(startLine - 1, endLine).join('\n');
@@ -185,7 +189,7 @@ const completeAndParse = async (messages, sentContext, messageId) => {
 
 
 
-const performTask = async (prompt) => {
+const performTask = async (prompt, currentFile) => {
 	// get system prompt from prompts/implement.prompt
 	const initialContext = await getRepoContext();
 	const sentContext = [];
@@ -207,7 +211,20 @@ const performTask = async (prompt) => {
 			"messageId": `${timestamp}.1.2`
 		}
 	];
-	let currentMessageId = `${timestamp}.1.2`;
+	if (currentFile) {
+		const currentFileContent = await getAdditionalContext(`${currentFile}`);
+		messages.push({
+			"role": "assistant",
+			"content": `# Required context\n- ${currentFile}`,
+			"messageId": `${timestamp}.1.2.3`
+		});
+		messages.push({
+			"role": "system",
+			"content": currentFileContent.message,
+			"messageId": `${timestamp}.1.2.3.4`
+		});
+	}
+	let currentMessageId = messages[messages.length - 1].messageId;
 	for (let message of messages) {
 		await sendChatMessage(message.role, message.content, message.messageId);
 	}
