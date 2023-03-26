@@ -1,0 +1,89 @@
+.chat-row-assistant,
+.chat-row-system,
+.chat-row-user {
+  padding: 10px;
+  width: calc(100% - 20px);
+}
+
+.chat-row-assistant {
+  --tw-bg-opacity: 1;
+  background-color: rgba(68, 70, 84, var(--tw-bg-opacity));
+}
+
+.chat-row-system {
+  --tw-bg-opacity: 1;
+  background-color: rgba(15, 30, 30, var(--tw-bg-opacity));
+}
+
+.chat-row-user {
+  --tw-bg-opacity: 1;
+  background-color: rgba(52, 53, 65, var(--tw-bg-opacity));
+}
+
+.close-button {
+  background-color: transparent;
+  border: none;
+  color: white;
+  cursor: pointer;
+  /* bold */
+  font-weight: 700;
+}
+
+.close-button::after {
+  font-family: Arial, sans-serif;
+  font-weight: bold;
+  font-size: 14px;
+  color: white;
+  display: block;
+  width: 14px;
+  height: 14px;
+  line-height: 14px;
+  text-align: center;
+  border-radius: 50%;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.close-button:hover::after {
+  background-color: rgba(0, 0, 0, 0.8);
+}
+
+.code-block {
+  position: relative;
+}
+
+.code-block pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.copy-button {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  background-color: #007bff;
+  color: white;
+  font-weight: bold;
+  font-size: 0.8rem;
+  border: none;
+  border-radius: 5px;
+  padding: 5px 10px;
+  cursor: pointer;
+  outline: none;
+  transition: background-color 0.2s ease-in-out;
+}
+
+.copy-button:hover {
+  background-color: #0056b3;
+}
+
+.loading-icon {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #ccc;
+  border-radius: 50%;
+  border-top-color: #333;
+  animation: spin 0.6s linear infinite;
+  margin-left: 5px;
+}

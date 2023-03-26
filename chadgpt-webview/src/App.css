@@ -1,0 +1,73 @@
+body {
+  font-family: sans-serif;
+}
+
+.chat-container {
+  height: 100%;
+  margin-top: 10px;
+  padding: 5px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.chat-messages {
+  overflow-y: scroll;
+  height: calc(100% - 150px);
+  position: absolute;
+  top: 0;
+  width: 100%;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+
+
+.chat-form {
+  display: flex;
+  /* justify-content: center;
+  align-items: center; */
+  /* form should always be at the bottom, full width */
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  margin-top: 10px;
+}
+
+.chat-input {
+  /* full width of the window - 50px */
+  width: calc(100vw - 100px);
+  min-height: 100px;
+  margin-right: 10px;
+  padding: 10px;
+  border: none;
+  border-radius: 5px;
+}
+
+.chat-button {
+  background-color: #007acc;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  padding: 10px;
+  cursor: pointer;
+}
+
+.chat-button:hover {
+  background-color: #0062a3;
+}
+
+/* make code blocks look nice. Break lines if they don't fit */
+pre {
+  background-color: rgb(5, 5, 5);
+  color: #ccc;
+  padding: 10px;
+  border-radius: 5px;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-word;
+  hyphens: auto;
+}
+code {
+  color: #ccc;
+}

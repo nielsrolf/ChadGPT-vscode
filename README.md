@@ -2,77 +2,31 @@
 
 
 Not a maintained or reliable thing at this moment, but a very cool proof of concept.
-
-Commands:
-- [x] ChadGPT: Implement feature
-    - creates a summary of your workspace
-    - chatGPT can ask for more information on source code, which is automatically sent
-    - finally, chadGPT suggests and applies some file diffs
-- [] ChadGPT: edit selection
-    - send repo summary, selection and instruction to chatgpt
-    - apply edits
-- [] ChadGPT: debug command
-    - send repo summary, command logs and errors to chatgpt and ask to fix it
-    - again, chatgpt can ask for more info and suggest file diffs
-
 ## Features
+`cmd + P` ->
+- `ChadGPT: open chat`
+- `ChadGPT: implement feature` - generates a file diff based on an instruction
+- `ChadGPT: edit selection` - generates a file diff based on the currently selected code and an instruction
+- `ChadGPT: debug command` - runs a command in a sandbox and generates file diffs until there is no more error
+- `ChadGPT: restart sandbox` - kills the sandbox container, rebuild the image and restarts the container
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+### Controlling which files are visible
+Files mentioned in `.gitignore` and `.chadignore` are ignored. Files mentioned in `.chadinclude` are visible, the latter has priority over ignore rules and can be used to make docs available.
 
-For example if there is an image subfolder under your extension project workspace:
+### Using the debug command
+ChadGPT allows you to debug commands in a sandbox docker container. For this to work, you need to have a `Dockerfile`. ChadGPT gets access to a terminal with the `cwd` mounted and network access to perform `GET`, `HEAD` and `PUT` operations. It can modify files in the mounted directory so use with caution!
 
-\!\[feature X\]\(images/feature-x.png\)
-
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+The files are added only after the image is build, so you may need to move some commands (like `pip install -r requirements.txt`) from your Dockerfile to e.g. a `setup.sh`. Then, the debug command should be: `source setup.sh && {cmd}`.
 
 ## Requirements
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+- docker if you want to use the debug command
+- your own OpenAi API key
 
-## Extension Settings
-
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
-
-For example:
-
-This extension contributes the following settings:
-
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
-
-## Known Issues
-
-Calling out known issues can help limit users opening duplicate issues against your extension.
 
 ## Release Notes
 
-Users appreciate release notes as you update your extension.
 
 ### 1.0.0
 
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
-
----
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code.  Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux)
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux)
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+Initial version of ChadGPT

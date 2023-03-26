@@ -1,0 +1,8 @@
+FROM python:3.9
+
+WORKDIR /app
+
+RUN touch /app/file.txt
+RUN apt-get update && apt-get install -y iptables tmux
+RUN update-alternatives --set iptables /usr/sbin/iptables-legacy
+RUN update-alternatives --set ip6tables /usr/sbin/ip6tables-legacy
