@@ -139,8 +139,8 @@ const parseResponse = async (responseMsg, sentContext) => {
 			message += `# Edits:\n${fileDiffs.map(x => x.message).join('\n')}\n`;
 			displayMessage += `# Edits:\n${fileDiffs.map(x => x.message).join('\n')}\n`;
 		} else if (sandboxCommands.length > 0) {
-			message += `# Execute:\n\`\`\`bash\n${sandboxCommands}\n\`\`\`\n`;
-			displayMessage += `# Execute:\n\`\`\`bash\n${sandboxCommandsWithOutput}\n\`\`\`\n`;
+			message += `# Execute:\n\`\`\`\n${sandboxCommands}\n\`\`\`\n`;
+			displayMessage += `# Execute:\n\`\`\`\n${sandboxCommandsWithOutput}\n\`\`\`\n`;
 		}
 		return { requiredContext, fileDiffs, sandboxCommands, sandboxCommandsWithOutput, message, displayMessage };
 	}

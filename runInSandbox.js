@@ -17,7 +17,7 @@ const imageName = 'chadgpt-sandbox';
 
 async function buildImage() {
     const dockerfileContents = fs.readFileSync('./Dockerfile', 'utf-8');
-    const newDockerfileContents = `${dockerfileContents}\nRUN apt-get update && apt-get install -y iptables tmux\nRUN update-alternatives --set iptables /usr/sbin/iptables-legacy\nRUN update-alternatives --set ip6tables /usr/sbin/ip6tables-legacy`;
+    const newDockerfileContents = `${dockerfileContents}\nRUN touch /tmp/chadgpt-history \nRUN apt-get update && apt-get install -y iptables screen\nRUN update-alternatives --set iptables /usr/sbin/iptables-legacy\nRUN update-alternatives --set ip6tables /usr/sbin/ip6tables-legacy`;
 
     fs.writeFileSync('./Dockerfile-sandbox', newDockerfileContents, 'utf-8');
 
@@ -46,7 +46,6 @@ async function buildImage() {
 
 
 async function getOrCreateImage() {
-    console.log(process.cwd());
     const images = await docker.listImages();
     const imageExists = images.some(image => {
         return image.RepoTags.includes(imageName);
@@ -85,7 +84,7 @@ async function createOrGetSandbox() {
     const containerOptions = {
         Image: imageInfo.RepoTags[0],
         Tty: true,
-        Cmd: ['/bin/bash', '-c', 'iptables -A OUTPUT -p tcp -m multiport --dports 80,443 -m conntrack --ctstate NEW -m multiport --dports 80,443 ! --syn -m comment --comment "Block POST and PUT requests" -j DROP && tmux new-session -s sandbox -n shell -d && sleep infinity'],
+        Cmd: ['/bin/bash', '-c', 'iptables -A OUTPUT -p tcp -m multiport --dports 80,443 -m conntrack --ctstate NEW -m multiport --dports 80,443 ! --syn -m comment --comment "Block POST and PUT requests" -j DROP && screen -S sandbox -dm && sleep infinity'],
         HostConfig: {
             Binds: [`${__dirname}:${__dirname}`],
             WorkingDir: `${__dirname}`,
@@ -93,11 +92,6 @@ async function createOrGetSandbox() {
             AutoRemove: true,
         },
         name: 'chadgpt-sandbox',
-        AttachStdin: true,
-        AttachStdout: true,
-        AttachStderr: true,
-        OpenStdin: true,
-        StdinOnce: false,
     };
     // create and start the container
     const container = await docker.createContainer(containerOptions);
@@ -108,38 +102,53 @@ async function createOrGetSandbox() {
     return container;
 }
 
-
+/**
+ * run a command in the sandbox and return the captured output.
+ * Commands are run in a tmux session called sandbox.
+ * 
+ * Example:
+ * let out1 = await runInSandbox('cd /tmp')
+ * let out2 = await runInSandbox('pwd')
+ * out2 === '/tmp'
+ */
 async function runInSandbox(cmd) {
     let container = await createOrGetSandbox();
+    const endToken = Math.random().toString(36).substring(7);
+    // escape the cmd to prevent it from being interpreted by the shell.
+    cmd = cmd.replace('$', '\\$');
+
+    const cmdWritingToHistory = `${cmd} > /tmp/chadgpt-history 2>&1 && echo ${endToken} >> /tmp/chadgpt-history || echo ${endToken} >> /tmp/chadgpt-history`;
     const exec = await container.exec({
+        Cmd: ['screen', '-S', 'sandbox', '-X', 'stuff', `${cmdWritingToHistory}`+'\n'],
+        AttachStderr: true,
+    });
+    await exec.start({ hijack: true, stdin: true });
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    return waitForEndToken(container, endToken);
+}
+
+
+async function waitForEndToken(container, endToken) {
+    const history = await container.exec({
+        Cmd: ['cat', '/tmp/chadgpt-history'],
         AttachStdout: true,
         AttachStderr: true,
-        Cmd: ["bash", "-c", `tmux send-keys -t sandbox:shell.0 "${cmd}" C-m && tmux capture-pane -t sandbox:shell.0 -e -S - -E - && tmux show-buffer && tmux delete-buffer`],
     });
-
-    let output = "";
-    try {
-        await new Promise((resolve, reject) => {
-            exec.start({ hijack: true, stdin: true }, (err, stream) => {
-                if (err) reject(err);
-                
-                stream.on("data", (data) => {
-                    output += data.toString();
-                });
-                
-                stream.on("end", () => {
-                    // stop waiting for more output.
-                    reject(new Error("Command executed."));
-                });
-            });
+    const historyStream = await history.start({ hijack: true, stdin: true });
+    const historyOutput = await new Promise((resolve) => {
+        historyStream.on('data', (data) => {
+            resolve(data.toString());
         });
-    } catch (err) {
-        if (err.message !== "Command executed.") {
-            throw err;
-        }
-        return output;
-    }    
+    });
+    if (!historyOutput.includes(endToken)) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        return waitForEndToken(container, endToken);
+    } else {
+        return historyOutput.split(endToken)[0];
+    }
 }
+
+
 
 
 async function restartSandbox() {
@@ -160,27 +169,37 @@ async function restartSandbox() {
 
 
 async function runCommandsInSandbox(commands) {
+    console.log("running commands:", commands);
     // set the vscode home dir as cwd for the command
-    const homeDir = vscode.workspace.workspaceFolders[0].uri.fsPath;
+    // const homeDir = vscode.workspace.workspaceFolders[0].uri.fsPath;
+    const homeDir = `/Users/nielswarncke/Documents/ChadGPT-vscode`;
     await runInSandbox(`cd ${homeDir}`);
-    await runInSandbox('echo chadgpt-sandbox-start');
+
+    let output = ""
     for (const command of commands) {
-        await runInSandbox(command);
+        if (typeof command == "string") {
+            const tmp = await runInSandbox(command);
+            output += `> ${command}\n${tmp}\n\n`;
+        }
     }
-    const output = await runInSandbox('chadgpt-sandbox-end');
-    // return the last captured output
-    return output.split('chadgpt-sandbox-start').slice(-1)[0]
-                 .split('chadgpt-sandbox-end')[0];
+
+    // const output = await runInSandbox(`echo done ${endToken}`);
+    return output;
 }
 
-// runCommandsInSandbox(['which python', 'python music.py']).then((output) => {
-//     console.log(output);
-// }).catch((err) => {
-//     console.log(err);
-// });
+// restartSandbox();
+
+async function testCommands() {
+    for(let i = 0; i < 1; i++) {
+        let output = await runCommandsInSandbox(['pwd', 'python music.py', 'export a=1', 'echo $a', 'pip install numpy']);
+        console.log(output, i);
+
+    }
+}
+testCommands();
 
 
-module.exports = {
-    runCommandsInSandbox,
-    restartSandbox,
-};
+// module.exports = {
+//     runCommandsInSandbox,
+//     restartSandbox,
+// };
