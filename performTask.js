@@ -97,7 +97,7 @@ const parseResponseFileDiffs = async (responseMsg) => {
 	return parsedFileDiffs;
 }
 
-const parseResponseSandboxCommands = async (responseMsg) => {
+const parseResponseSandboxCommands = async (responseMsg, systemResposeId) => {
 	const sandboxCommands = responseMsg
 		.replace("# Execute:", "# Execute")
 		.split('# Execute')[1]
@@ -105,12 +105,12 @@ const parseResponseSandboxCommands = async (responseMsg) => {
 		.replace('```sh', '```')
 		.split('\n```')[1]
 		.split('\n');
-	const sandboxCommandsWithOutput = await runCommandsInSandbox(sandboxCommands);
+	const sandboxCommandsWithOutput = await runCommandsInSandbox(sandboxCommands, systemResposeId);
 	return {sandboxCommands, sandboxCommandsWithOutput};
 }
 
 
-const parseResponse = async (responseMsg, sentContext) => {
+const parseResponse = async (responseMsg, sentContext, systemResposeId) => {
 	// parse response: get sections for required context and file diffs
 	let requiredContext = [];
 	let fileDiffs = [];
@@ -127,7 +127,7 @@ const parseResponse = async (responseMsg, sentContext) => {
 	if (responseMsg.indexOf('# Execute') !== -1) {
 		// parse required context
 		console.log("parsing sandbox commands", responseMsg);
-		({sandboxCommands, sandboxCommandsWithOutput} = await parseResponseSandboxCommands(responseMsg));
+		({sandboxCommands, sandboxCommandsWithOutput} = await parseResponseSandboxCommands(responseMsg, systemResposeId));
 	}
 	if (requiredContext.length > 0 || fileDiffs.length > 0 || sandboxCommands.length > 0) {
 		let message = "";
@@ -169,7 +169,7 @@ const completeAndParse = async (messages, sentContext, messageId) => {
 	await sendChatMessage("assistant", responseMsg, responseMsgId);
 	console.log({ responseMsg })
 	try {
-		return await parseResponse(responseMsg, sentContext);
+		return await parseResponse(responseMsg, sentContext, `${messageId}.1`);
 	} catch (e) {
 		const errorMsg = `Dear assistant, your response could not be parsed: (${e})\nRemember to follow the response format described earlier and don't ask questions, instead use the '# Required context' or '# Execute' sections to request more information.`;
 		const retryMessages = [...messages, {

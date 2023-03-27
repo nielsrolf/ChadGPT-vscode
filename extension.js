@@ -103,8 +103,6 @@ const editSelection = async (context) => {
 // we need to make a loop similar to performTask, but also parse the `# Shell` section, run the commands, and resond with a `# Output` section
 // we ask ChatGPT also if we are done debugging, and if so, we exit the loop
 async function debugCommand(context) {
-	// TODO
-	// step 1: ask for a command to debug
 	const commandPrompt = await vscode.window.showInputBox({
 		prompt: 'What command would you like to debug?',
 		placeHolder: 'e.g. "pytest test'
@@ -112,13 +110,9 @@ async function debugCommand(context) {
 	if (!commandPrompt) {
 		return;
 	}
-	// step 2: run the command in the sandbox
-	const commandOutput = await runCommandsInSandbox([commandPrompt]);
-	// step 3: construct a prompt for implementFeature
-	const prompt = getDebugPrompt(commandPrompt, commandOutput);
-	// step 4: init the webview
 	await createPanel(context);
-	// step 5: call performTask
+	const commandOutput = await runCommandsInSandbox([commandPrompt], `${Date.now()}`);
+	const prompt = getDebugPrompt(commandPrompt, commandOutput);
 	const fileDiffs = await performTask(prompt);
 	await applyDiffs(fileDiffs);
 }

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useContext} from "react";
+import React, { useState, useRef, useEffect, useContext } from "react";
 import "./Chat.css";
 import Message from "./Message";
 import useWebviewListener from '../useWebviewListener';
@@ -58,7 +58,7 @@ const Chat = () => {
     const history = [...messagesSorted.filter(
       (message) => messageId.indexOf(message.messageId) !== -1
     ), newMessage];
-    vscode.postMessage({...newMessage, history});
+    vscode.postMessage({ ...newMessage, history });
   };
 
   // scroll the selected message into view
@@ -67,14 +67,41 @@ const Chat = () => {
       `[data-message-id="${parentMessageId}"]`
     );
     if (selectedMessage) {
-      selectedMessage.scrollIntoView({ behavior: "smooth"});
+      selectedMessage.scrollIntoView({ behavior: "smooth" });
     } else {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth"});
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [parentMessageId]);
 
   useWebviewListener((event) => {
     const message = event.data;
+    if (message.type === "stream") {
+      // check if the messageId already exists, otherwise create it
+      const existingMessage = messagesSorted.find(
+        (i) => i.messageId === message.messageId
+      );
+      if (existingMessage) {
+        const updatedMsg = {
+          ...existingMessage,
+          content: message.content,
+          timestamp: message.timestamp,
+        };
+        setMessages((prevMessages) => {
+          return [...prevMessages.filter(m => m.messageId !== message.messageId), updatedMsg];
+        });
+      } else {
+        setMessages((prevMessages) => [
+          ...prevMessages,
+          {
+            role: message.role,
+            content: message.content,
+            messageId: message.messageId,
+            timestamp: message.timestamp,
+          },
+        ]);
+      }
+      return;
+    }
     setMessages((prevMessages) => [
       ...prevMessages,
       {

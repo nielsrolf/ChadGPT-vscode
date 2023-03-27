@@ -1,6 +1,8 @@
 const Docker = require('dockerode');
 const fs = require('fs');
 const tar = require('tar-fs');
+const {streamToFrontend} = require('./frontend.js');
+
 let vscode;
 try {
 	vscode = require('vscode');
@@ -111,44 +113,44 @@ async function createOrGetSandbox() {
  * let out2 = await runInSandbox('pwd')
  * out2 === '/tmp'
  */
-async function runInSandbox(cmd) {
+async function runInSandbox(cmd, streamId) {
     let container = await createOrGetSandbox();
     const endToken = Math.random().toString(36).substring(7);
     // escape the cmd to prevent it from being interpreted by the shell.
-    cmd = cmd.replace('$', '\\$');
+    cmd = cmd.replace(`\\`, `\\\\`).replace('$', '\\$');
 
-    const cmdWritingToHistory = `${cmd} > /tmp/chadgpt-history 2>&1 && echo ${endToken} >> /tmp/chadgpt-history || echo ${endToken} >> /tmp/chadgpt-history`;
+    const cmdWritingToHistory = `${cmd} > /tmp/${streamId} 2>&1 && echo ${endToken} >> /tmp/${streamId} || echo ${endToken} >> /tmp/${streamId}`;
     const exec = await container.exec({
         Cmd: ['screen', '-S', 'sandbox', '-X', 'stuff', `${cmdWritingToHistory}`+'\n'],
         AttachStderr: true,
     });
     await exec.start({ hijack: true, stdin: true });
     await new Promise((resolve) => setTimeout(resolve, 1000));
-    return waitForEndToken(container, endToken);
+    return waitForEndToken(container, endToken, streamId);
 }
 
 
-async function waitForEndToken(container, endToken) {
+async function waitForEndToken(container, endToken, streamId) {
+    console.log("streamId", streamId);
     const history = await container.exec({
-        Cmd: ['cat', '/tmp/chadgpt-history'],
+        Cmd: ['cat', `/tmp/${streamId}`],
         AttachStdout: true,
         AttachStderr: true,
     });
     const historyStream = await history.start({ hijack: true, stdin: true });
     const historyOutput = await new Promise((resolve) => {
-        historyStream.on('data', (data) => {
+        historyStream.on('data', async (data) => {
             resolve(data.toString());
+            streamToFrontend(streamId, data.toString().split(endToken)[0]);
         });
     });
     if (!historyOutput.includes(endToken)) {
         await new Promise((resolve) => setTimeout(resolve, 1000));
-        return waitForEndToken(container, endToken);
+        return waitForEndToken(container, endToken, streamId);
     } else {
         return historyOutput.split(endToken)[0];
     }
 }
-
-
 
 
 async function restartSandbox() {
@@ -168,17 +170,16 @@ async function restartSandbox() {
 }
 
 
-async function runCommandsInSandbox(commands) {
-    console.log("running commands:", commands);
+async function runCommandsInSandbox(commands, streamId) {
+    console.log("running commands:", commands, streamId);
     // set the vscode home dir as cwd for the command
-    // const homeDir = vscode.workspace.workspaceFolders[0].uri.fsPath;
-    const homeDir = `/Users/nielswarncke/Documents/ChadGPT-vscode`;
-    await runInSandbox(`cd ${homeDir}`);
+    const homeDir = vscode.workspace.workspaceFolders[0].uri.fsPath;
+    await runInSandbox(`cd ${homeDir}`, streamId);
 
     let output = ""
     for (const command of commands) {
         if (typeof command == "string") {
-            const tmp = await runInSandbox(command);
+            const tmp = await runInSandbox(command, streamId);
             output += `> ${command}\n${tmp}\n\n`;
         }
     }
@@ -196,10 +197,10 @@ async function testCommands() {
 
     }
 }
-testCommands();
+// testCommands();
 
 
-// module.exports = {
-//     runCommandsInSandbox,
-//     restartSandbox,
-// };
+module.exports = {
+    runCommandsInSandbox,
+    restartSandbox,
+};
