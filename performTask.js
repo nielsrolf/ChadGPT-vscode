@@ -1,264 +1,255 @@
 let vscode;
-let getAdditionalContext, getRepoContext;
-// try {
-// 	vscode = require('vscode');
-// 	({ getAdditionalContext, getRepoContext } = require('./utils.js'));
-// } catch (e) {
-// 	console.log("Could not load vscode");
-// 	({ getAdditionalContext, getRepoContext } = require('./mock_utils.js'));
-
-// }
 vscode = require('vscode');
-({ getAdditionalContext, getRepoContext } = require('./utils.js'));
-const { implementPrompt, responseFormat } = require('./prompts.js');
+({ getShortContent } = require('./utils.js'));
 const { sendChatMessage } = require('./frontend.js');
 const { runCommandsInSandbox } = require('./runInSandbox.js');
 const { createChatCompletion } = require('./createChatCompletion');
 
 
-
-
-const renderDiffForMessage = (fileDiff) => {
-	return `${fileDiff.filename}:${fileDiff.range.start.line}-${fileDiff.range.end.line}}\n\`\`\`before\n${fileDiff.code_before}\n\`\`\`\n\`\`\`after\n${fileDiff.code_after}\n\`\`\`\n`;
-}
-
-const formatContextMessage = (context) => {
-	return context.map(i => i.message).join('\n');
-};
-
-
-const parseResponseRequiredContext = async (responseMsg, sentContext) => {
-	const requiredContextSection = responseMsg
-		.replace("# Required context:", "# Required context")
-		.split('# Required context')[1]
-		.split("# Edits")[0]
-		.trim();
-	const requiredContextArray = requiredContextSection.split('\n- ')
-		.map(x => x.trim()
-			.split('\n')[0]
-			.trim())
-		.map(x => x.startsWith('- ') ? x.split('- ')[1] : x)
-		.filter(x => x !== '')
-		.filter(x => !sentContext.includes(x));
-	const requiredContext = await Promise.all(requiredContextArray.map(getAdditionalContext));
-	console.log({ responseMsg, requiredContextSection, requiredContextArray, requiredContext, sentContext });
-	return requiredContext;
-}
-
-
-const parseResponseFileDiffs = async (responseMsg) => {
-	const fileDiffs = responseMsg
-		.replace("# Edits:", "# Edits")
-		.split('# Edits')[1]
-	const fileDiffsArray = fileDiffs.split('\n- ').filter(x => x !== '').map(x => x.trim());
-	const parsedFileDiffs = await Promise.all(fileDiffsArray.map(async x => {
-		const [lineRange, ...newLines] = x.split('\n');
-		let startLine = 1;
-		let endLine = 1000000;
-		const filepath = lineRange.split("->")[0].split(":")[0];
-		if (lineRange.indexOf(":") !== -1) {
-			if (lineRange.split("->")[0].split(":")[1].indexOf("-") !== -1) {
-				[startLine, endLine] = lineRange.split("->")[0].split(":")[1].split("-");
-			} else {
-				startLine = lineRange.split("->")[0].split(":")[1];
-				endLine = startLine;
-			}
-		}
-		if (newLines.join('\n').indexOf('```') === -1) {
-			throw new Error("Could not parse code: expected format: ```<code>```");
-		}
-		const newCode = newLines.join('\n')
-			.replace('```javascript', '```')
-			.replace('```js', '```')
-			.replace('```python', '```')
-			.replace('```py', '```')
-			.split('```')
-			.slice(1, -1)
-			.join('```')
-			.split('\n')
-			// remove line numbers if present (example: 12:some code -> some code), using a regex
-			.map(x => x.replace(/^[0-9]+:/, ''))
-			.join('\n');
-
-		const document = await vscode.workspace.openTextDocument(filepath);
-		const codeBefore = document.getText().split('\n').slice(startLine - 1, endLine).join('\n');
-		const message = `- ${filepath}:${startLine}-${endLine}\n\`\`\`before${codeBefore}\`\`\`\n\`\`\`after${newCode}\`\`\``;
-		// await sendChatMessage("assistant", `# Edits:\n- ${filepath}:${startLine}-${endLine}\n\`\`\`${newCode}\`\`\``, responseMsgId);
-		return {
-			filepath, range: {
-				start: { line: startLine, character: 0 },
-				end: { line: endLine, character: 0 }
-			},
-			code_after: newCode,
-			code_before: codeBefore,
-			message: message
-		}
-	}));
-	return parsedFileDiffs;
-}
-
-const parseResponseSandboxCommands = async (responseMsg, systemResposeId) => {
-	const sandboxCommands = responseMsg
-		.replace("# Execute:", "# Execute")
-		.split('# Execute')[1]
-		.replace('```bash', '```')
-		.replace('```sh', '```')
-		.split('\n```')[1]
-		.split('\n');
-	const sandboxCommandsWithOutput = await runCommandsInSandbox(sandboxCommands, systemResposeId);
-	return {sandboxCommands, sandboxCommandsWithOutput};
+const initialPrompt = {
+    "task": "Code assistant",
+    "system_msg": "You are a helpful coding assistant. You help the user implement a feature or debug code in multiple messages. You perform tasks to gather information and then use that information to perform actions. After you have edited a file, you view it to check if the edits are correct. When you are done, you perform the 'task completed' action.",
+    "user_task": "<insert>",
+    "context": null,
+    "response_format": {
+        "format": "json",
+        "info": "Respond in one of the formats specified in the options. Use actions 'run command' to create or move files, etc. You can take one action per response, and continue to perform actions until the task is done. Respond in pure JSON, with no prose text before or after the JSON, as it will mess up the automated parsing of your response.",
+        "options": [
+            {
+                "action": "run command",
+                "command": "<bash command to run - you will see the output in the next message. Examples: 'tree', 'pip install torch', 'mkdir new-dir', 'grep' ...>"
+            },
+            {
+                "action": "create file",
+                "path": "<path/to/file>",
+                "content": "```\n<file content - this does not need JSON string escaping due to the special escaping.>\n```"
+            },
+            {
+                "action": "edit file",
+                "path": "<path/to/file>",
+                "start": "<start line>",
+                "end": "<end line>",
+                "content": "```\n<content that replaces the current selection - this does not need JSON string escaping due to the special escaping.>\n```"
+            },
+            {
+                "action": "show file summary",
+                "path": "<path/to/file>"
+            },
+            {
+                "action": "view section",
+                "path": "<path/to/file>",
+                "start": "<start line>",
+                "end": "<end line>"
+            },
+            // {
+            //     "action": "search folder",
+            //     "search_term": "<search term>",
+            //     "include_regex": "<regex to include files, optional>",
+            //     "exclude_regex": "<regex to exclude files, optional>"
+            // },
+            {
+                "action": "task completed",
+                "final_message": "<message to show when task is completed>"
+            }
+        ]
+    }
 }
 
 
-const parseResponse = async (responseMsg, sentContext, systemResposeId) => {
-	// parse response: get sections for required context and file diffs
-	let requiredContext = [];
-	let fileDiffs = [];
-	let sandboxCommands = [];
-	let sandboxCommandsWithOutput = '';
-	if (responseMsg.indexOf('# Required context') !== -1) {
-		// parse fileDiffs
-		requiredContext = await parseResponseRequiredContext(responseMsg, sentContext);
-	}
-	if (responseMsg.indexOf('# Edits') !== -1) {
-		// parse required context
-		fileDiffs = await parseResponseFileDiffs(responseMsg);
-	}
-	if (responseMsg.indexOf('# Execute') !== -1) {
-		// parse required context
-		console.log("parsing sandbox commands", responseMsg);
-		({sandboxCommands, sandboxCommandsWithOutput} = await parseResponseSandboxCommands(responseMsg, systemResposeId));
-	}
-	if (requiredContext.length > 0 || fileDiffs.length > 0 || sandboxCommands.length > 0) {
-		let message = "";
-		let displayMessage = "";
-		if (requiredContext.length > 0) {
-			message += `# Required context:\n${requiredContext.map(x => `- ${x.requestMessage}`).join('\n')}\n`;
-			displayMessage += `# Required context:\n${requiredContext.map(x => `${x.message}`).join('\n')}\n`;
-		} else if (fileDiffs.length > 0) {
-			message += `# Edits:\n${fileDiffs.map(x => x.message).join('\n')}\n`;
-			displayMessage += `# Edits:\n${fileDiffs.map(x => x.message).join('\n')}\n`;
-		} else if (sandboxCommands.length > 0) {
-			message += `# Execute:\n\`\`\`\n${sandboxCommands}\n\`\`\`\n`;
-			displayMessage += `# Execute:\n\`\`\`\n${sandboxCommandsWithOutput}\n\`\`\`\n`;
-		}
-		return { requiredContext, fileDiffs, sandboxCommands, sandboxCommandsWithOutput, message, displayMessage };
-	}
-	throw new Error("Response must include either '# Required context' or '# Edits' or '# Execute'");
+const parseResponse = async (responseMsg) => {
+    // JSON escape the unescaped code blocks between 'content": "```' and '```'
+    if( !responseMsg.includes('"content": "```') ) {
+        return JSON.parse(responseMsg);
+    }
+    let codeEscaped = JSON.stringify(responseMsg.split('"content": "```')[1].split('\n```"')[0]);
+    let responseEscaped = responseMsg.split('"content": "```')[0] + '"content": "' + codeEscaped + '"' + responseMsg.split('\n```"')[1];
+    let response = JSON.parse(responseEscaped);
+    return response;
 }
 
 
-const testParseResponseForRequiredContext = async () => {
-	const responseMsg = `"My apologies. 
-
-	# Required context
-	- /Users/nielswarncke/Documents/ChadGPT-vscode/test/performTask.test.js:1-20
-	- /Users/nielswarncke/Documents/ChadGPT-vscode/frontend.js
-	- /Users/nielswarncke/Documents/ChadGPT-vscode/performTask.js:98-133"`
-	const sentContext = [];
-	const parsedResponse = await parseResponse(responseMsg, sentContext);
-	console.log({ parsedResponse });
-}
-
-// testParseResponseForRequiredContext();
-
-
-const completeAndParse = async (messages, sentContext, messageId) => {
-	const responseMsg = await createChatCompletion(messages);
-	const responseMsgId = `${messageId}.${Date.now()}`;
-	await sendChatMessage("assistant", responseMsg, responseMsgId);
-	console.log({ responseMsg })
-	try {
-		return await parseResponse(responseMsg, sentContext, `${messageId}.1`);
-	} catch (e) {
-		const errorMsg = `Dear assistant, your response could not be parsed: (${e})\nRemember to follow the response format described earlier and don't ask questions, instead use the '# Required context' or '# Execute' sections to request more information.`;
-		const retryMessages = [...messages, {
-			"role": "assistant",
-			"content": responseMsg
-		}, {
-			"role": "system",
-			"content": errorMsg
-		}];
-		// await sendChatMessage("assistant", responseMsg, responseMsgId);
-		const errorMsgId = `${responseMsgId}.${Date.now()}`;
-		await sendChatMessage("system", errorMsg, errorMsgId);
-		const [assistantMsg, response] = await completeAndParse(retryMessages, sentContext, errorMsgId);
-		return [assistantMsg, response];
-	}
+const performTask = async (task, context) => {
+    // context: e.g. {"selection": "code", "currentFile": "path/to/file", "start": 1, "end": 10}
+    // currentFile: e.g. 'path/to/file'
+    let initialMessage = {...initialPrompt};
+    initialMessage.context = context;
+    initialMessage.user_task = task;
+    return performTasksUntilDone(initialMessage);
 }
 
 
+const performTasksUntilDone = async (message) => {
+    let messages = [
+        {
+            "role": "system",
+            "content": JSON.stringify(message, null, 2)
+        }
+    ];
+    let currentMsgId = new Date().getTime().toString();
+    await sendChatMessage(messages[0].role, messages[0].content, currentMsgId);
+    while(true) {
+        let {gptResponse, responseRaw} = await askForNextAction(messages);
+        console.log('gptResponse', gptResponse, responseRaw);
+        messages.push(
+            {
+                "role": "assistant",
+                "content": responseRaw
+            }
+        );
+        currentMsgId = `${currentMsgId}.${new Date().getTime().toString()}`;
+        await sendChatMessage(messages[messages.length - 1].role, messages[messages.length - 1].content, currentMsgId);
+        // await sendChatMessage(JSON.stringify(gptResponse, null, 2), currentMsgId);
+        if (gptResponse.action === 'task completed') {
+            return gptResponse.final_message;
+        }
+        let userResponse = await executeTask(gptResponse, `${currentMsgId}.stream`);
+        messages.push({
+            "role": "user",
+            "content": JSON.stringify(userResponse)
+        });
+        currentMsgId = `${currentMsgId}.${new Date().getTime().toString()}`;
+        await sendChatMessage(messages[messages.length - 1].role, messages[messages.length - 1].content, currentMsgId);
+    }
+}
 
-const performTask = async (prompt, currentFile) => {
-	// get system prompt from prompts/implement.prompt
-	const initialContext = await getRepoContext();
-	const sentContext = [];
-	const timestamp = new Date().getTime().toString();
-	const messages = [
-		{
-			"role": "system",
-			"content": implementPrompt,
-			"messageId": timestamp
-		},
-		{
-			"role": "system",
-			"content": "An overview of the files that you can ask to see is given below: \n```" + initialContext + "```",
-			"messageId": `${timestamp}.1`
-		},
-		{
-			"role": "user",
-			"content": prompt,
-			"messageId": `${timestamp}.1.2`
-		}
-	];
-	if (currentFile) {
-		const currentFileContent = await getAdditionalContext(`${currentFile}`);
-		messages.push({
-			"role": "assistant",
-			"content": `# Required context\n- ${currentFile}`,
-			"messageId": `${timestamp}.1.2.3`
-		});
-		messages.push({
-			"role": "system",
-			"content": currentFileContent.message,
-			"messageId": `${timestamp}.1.2.3.4`
-		});
-	}
-	let currentMessageId = messages[messages.length - 1].messageId;
-	for (let message of messages) {
-		await sendChatMessage(message.role, message.content, message.messageId);
-	}
-	while (true) {
-		const response = await completeAndParse(messages, sentContext, currentMessageId);
-		// to keep the correct order of messages, we need to send the assistant message first
-		console.log("parsed response: ", response);
-		currentMessageId = `${currentMessageId}.${Date.now()}`;
-		await sendChatMessage("system", response.displayMessage, currentMessageId);
-		if (response.fileDiffs.length > 0 && response.requiredContext.length === 0) {
-			console.log("returning from performTask: ", response.fileDiffs);
-			return response.fileDiffs;
-			// return validateResponse(response.fileDiffs, prompt);
-		} else if (response.requiredContext.length > 0) {
-			messages.push({
-				"role": "assistant",
-				"content": response.message
-			});
-			messages.push({
-				"role": "system",
-				"content": formatContextMessage(response.requiredContext)
-			});
-		} else if (response.sandboxCommands.length > 0) {
-			messages.push({
-				"role": "assistant",
-				"content": response.message
-			});
-			messages.push({
-				"role": "system",
-				"content": `\`\`\`\n${response.sandboxCommandsWithOutput}\n\`\`\``
-			});
-		}
-	}
-};
+
+const askForNextAction = async (messages) => {
+    // send messages to GPT
+    // add the surrounding JSON with role: assistant / user etc
+    let responseRaw = await createChatCompletion(messages);
+    console.log('askForNextAction', responseRaw);
+    // let parsedResponse = parseResponse(responseRaw);
+    let gptResponse = {'action': 'task completed', 'final_message': 'test'};
+    return {gptResponse, responseRaw};
+}
+
+
+// tasks
+const runCommand = async ({command}, streamId) => {
+    let output = await runCommandsInSandbox(command, streamId);
+    return {
+        "action": "run command",
+        "command": command,
+        "output": output
+    }
+}
+
+
+const createFile = async ({path, content}) => {
+    let output = await runCommandsInSandbox(`echo "${content}" > ${path}`);
+    return {
+        "action": "create file",
+        "path": path,
+        "output": 'ok'
+    }
+}
+
+
+const showFileSummary = async ({path}) => {
+    const output = getShortContent(path);
+    return {
+        "action": "show file summary",
+        "path": path,
+        "output": output
+    }
+}
+
+
+const viewSection = async ({path, start, end}) => {
+    let output = await runCommandsInSandbox(`cat ${path} | head -n ${end} | tail -n ${end-start}`);
+    return {
+        "action": "view section",
+        "path": path,
+        "start": start,
+        "end": end,
+        "output": output
+    }
+}
+
+const applyDiffs = async (diff) => {
+    const document = await vscode.workspace.openTextDocument(diff.path);
+    const editRange = new vscode.Range(
+        new vscode.Position(parseInt(diff.start) - 1, 0),
+        new vscode.Position(parseInt(diff.end), 0)
+    );
+    // remove the line numbers from the code if they exist
+    const codeAfter = diff.code_after.replace(/^[0-9]+: /gm, '');
+    const edit = new vscode.TextEdit(editRange, codeAfter + '\n');
+    const workspaceEdit = new vscode.WorkspaceEdit();
+    workspaceEdit.set(document.uri, [edit]);
+    await vscode.workspace.applyEdit(workspaceEdit);
+    await vscode.commands.executeCommand('editor.action.formatDocument', document.uri);
+}
+
+
+const editFile = async ({path, start, end, content}) => {
+    // TODO apply the edits to the file and return a new selection
+    await applyDiffs({
+        "path": path,
+        "start": start,
+        "end": end,
+        "content": content
+    })
+    const document = await vscode.workspace.openTextDocument(path);
+    const startLine = Math.max(parseInt(start - 4), 1);
+    const endLine = Math.min(parseInt(end + 4), document.lineCount);
+	const newContent = document.getText().split('\n').slice(startLine, endLine).join('\n');
+    return {
+        "action": "edit file",
+        "path": path,
+        "start": start,
+        "end": end,
+        "new_content": {
+            "start": startLine,
+            "end": endLine,
+            "content": newContent
+        }
+    }
+}
+
+
+// const searchFolder = async ({searchTerm, includeRegex, excludeRegex}) => {
+//     // TODO only search those files that match the includeRegex and don't match the excludeRegex
+//     let output = 
+//     return {
+//         "action": "search folder",
+//         "search_term": searchTerm,
+//         "include_regex": includeRegex,
+//         "exclude_regex": excludeRegex,
+//         "output": output
+//     }
+// }
+
+
+const executeTask = async (message, streamId) => {
+    try {
+        switch(message.action) {
+            case 'run command':
+                return await runCommand(message, streamId);
+            case 'create file':
+                return await createFile(message);
+            case 'show file summary':
+                return await showFileSummary(message);
+            case 'view section':
+                return await viewSection(message);
+            case 'edit file':
+                return await editFile(message);
+            // case 'search folder':
+            //     return await searchFolder(message);
+            case 'task completed':
+                return message;
+            default:
+                // retry
+                return {
+                    "error": "unknown action",
+                }
+        }
+    } catch (error) {
+        return {
+            "error": `error while performing action: ${error} - please try again.`,
+        }
+    }
+}
 
 
 module.exports = {

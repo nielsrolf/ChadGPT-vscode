@@ -137,16 +137,12 @@ const implementFeature = async (context) => {
 	} catch (e) {
 		console.log(e);
 	}
-	const prompt = getImplementPrompt(featureDescription, currentFilePath);
-	console.log("prompt: ", prompt);
 	await createPanel(context);
 	console.log("created panel");
-	const fileDiffs = await performTask(prompt, currentFilePath);
-	console.log("file diffs: ", fileDiffs)
-	await applyDiffs(fileDiffs);
+	const finalMessage = await performTask(featureDescription, {"currentFile": currentFilePath});
 	// todo: sanity check that the file diffs are what chadgpt wanted
 	// const validatePrompt = `You were just tasked to do the following: ${featureDescription}.You proposed the following changes: ${fileDiffs.map(renderDiffForMessage)}. Are these changes correct? If yes, answer with 'yes' - otherwise suggest a new edit.`;
-	vscode.window.showInformationMessage('Feature implemented!');
+	vscode.window.showInformationMessage(`Feature implemented! ${finalMessage}`);
 }
 
 

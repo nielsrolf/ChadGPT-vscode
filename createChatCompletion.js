@@ -51,7 +51,7 @@ const createChatCompletion = async (messages) => {
 				}
 			})
 		});
-		responseMsg = completion.data.choices[0].message.content.split("# Explanation")[0].trim();
+		responseMsg = completion.data.choices[0].message.content;
 		console.log("responseMsg: ", responseMsg);
 	} catch (e) {
 		console.log(e);
