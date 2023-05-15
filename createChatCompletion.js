@@ -31,7 +31,7 @@ const getOpenAIKey = async () => {
 
 const createChatCompletion = async (messages) => {
 	console.log("messages: ", messages);
-	if (messages.length > 12) {
+	if (messages.length > 50) {
 		throw new Error("Too many messages");
 	}
 	const apiKey = await getOpenAIKey();
@@ -42,8 +42,8 @@ const createChatCompletion = async (messages) => {
 	let responseMsg;
 	try {
 		const completion = await openai.createChatCompletion({
-			// model: "gpt-3.5-turbo",
-			model: "gpt-4",
+			model: "gpt-3.5-turbo",
+			// model: "gpt-4",
 			messages: messages.map(x => {
 				return {
 					"role": x.role,
