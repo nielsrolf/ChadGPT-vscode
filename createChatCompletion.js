@@ -29,7 +29,7 @@ const getOpenAIKey = async () => {
 }
 
 
-const createChatCompletion = async (messages) => {
+const createChatCompletion = async (messages, retry=5) => {
 	console.log("messages: ", messages);
 	if (messages.length > 50) {
 		throw new Error("Too many messages");
@@ -42,8 +42,8 @@ const createChatCompletion = async (messages) => {
 	let responseMsg;
 	try {
 		const completion = await openai.createChatCompletion({
-			model: "gpt-3.5-turbo",
-			// model: "gpt-4",
+			// model: "gpt-3.5-turbo",
+			model: "gpt-4",
 			messages: messages.map(x => {
 				return {
 					"role": x.role,
@@ -54,8 +54,10 @@ const createChatCompletion = async (messages) => {
 		responseMsg = completion.data.choices[0].message.content;
 		console.log("responseMsg: ", responseMsg);
 	} catch (e) {
-		console.log(e);
-		throw new Error("OpenAI API error");
+		if(retry === 0) {
+			throw new Error("OpenAI API error");
+		}
+		return await createChatCompletion(messages, retry - 1);
 	}
 	return responseMsg;
 };

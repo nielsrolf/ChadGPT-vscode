@@ -12,24 +12,6 @@ const initialPrompt = {
         "format": "json",
         "info": "Respond in one of the formats specified in the options. Use actions 'run command' to create or move files, etc. You can take one action per response, and continue to perform actions until the task is done. Respond in pure JSON, with no prose text before or after the JSON, and exactly one JSON object optionally followed by a code block. One exception to the JSON format is that the payload for the 'edit file' action (the new code) are sent directly after the JSON in a ```block```. Do not put JSON after code.",
         "options": [
-            // {
-            //     "action": "run command",
-            //     "command": "<bash command to run - you will see the output in the next message. Examples: 'tree', 'pip install torch', 'mkdir new-dir', 'grep' ...>"
-            // },
-            // {
-            //     "action": "create file",
-            //     "path": "<path/to/file>",
-            //     "content": "```\n<file content - this does not need JSON string escaping due to the special escaping.>\n```"
-            // },
-            {
-                "action": "edit file",
-                "path": "<path/to/file>",
-                "start": "<start line>",
-                "end": "<end line>",
-            },
-            {
-                "action": "validate edit",
-            },
             {
                 "action": "show file summary",
                 "path": "<path/to/file>"
@@ -41,10 +23,23 @@ const initialPrompt = {
                 "end": "<end line>"
             },
             // {
-            //     "action": "search folder",
-            //     "search_term": "<search term>",
-            //     "include_regex": "<regex to include files, optional>",
-            //     "exclude_regex": "<regex to exclude files, optional>"
+            //     "action": "run command",
+            //     "command": "<bash command to run - you will see the output in the next message. Examples: 'tree', 'pip install torch', 'mkdir new-dir', 'grep' ...>"
+            // },
+            {
+                "action": "edit file",
+                "path": "<path/to/file>",
+                "start": "<start line>",
+                "end": "<end line>",
+            },
+            {
+                "action": "validate edit",
+            },
+            // {
+            //     "action": "search workspace",
+            //     "term": "<search term>",
+            //     "include": "<regex to include files, optional>",
+            //     "exclude": "<regex to exclude files, optional>"
             // },
             {
                 "action": "task completed",
@@ -61,14 +56,14 @@ const initialUserPrompt = {
 }
 
 
-const performTask = async (task, context) => {
+const performTask = async (task, context, initialAssistantMessage) => {
     // context: e.g. {"selection": "code", "currentFile": "path/to/file", "start": 1, "end": 10}
     // currentFile: e.g. 'path/to/file'
     let systemMsg = {...initialPrompt};
     let userMsg = {...initialUserPrompt};
     userMsg.request = task;
     userMsg.context = context;
-    return performTasksUntilDone(systemMsg, userMsg);
+    return performTasksUntilDone(systemMsg, userMsg, initialAssistantMessage);
 }
 
 
@@ -127,7 +122,7 @@ const formatAsJsonWithCode = (response) => {
 }
 
 
-const performTasksUntilDone = async (systemMsg, userMsg) => {
+const performTasksUntilDone = async (systemMsg, userMsg, initialAssistant) => {
     let messages = [
         {
             "role": "system",
@@ -138,12 +133,9 @@ const performTasksUntilDone = async (systemMsg, userMsg) => {
             "content": JSON.stringify(userMsg, null, 2)
         }
     ];
-
-    let initialAssistant = {
-        "action": "show file summary",
-        "path": userMsg.context.currentFile
-    };
-    initialAssistant = {"gptResponse": initialAssistant, "responseRaw": formatAsJsonWithCode(initialAssistant)};
+    if(initialAssistant){
+        initialAssistant = {"gptResponse": initialAssistant, "responseRaw": formatAsJsonWithCode(initialAssistant)};
+    }
     let currentMsgId = new Date().getTime().toString();
     await sendChatMessage(messages[0].role, messages[0].content, currentMsgId);
     currentMsgId = `${currentMsgId}.${new Date().getTime().toString()}`;

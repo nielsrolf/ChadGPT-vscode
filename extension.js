@@ -88,14 +88,23 @@ const editSelection = async (context) => {
 		return;
 	}
 	const filepath = editor.document.uri.path;
-	const requiredContext = `${filepath}:${selection.start.line + 1}-${selection.end.line + 1}`;
-	const selectionContext = await getAdditionalContext(requiredContext);
-	const selectedCode = selectionContext.message;
-	const prompt = getEditPrompt(selectedCode, featureDescription);
+
+	// context: e.g. {"selection": "code", "currentFile": "path/to/file", "start": 1, "end": 10}
+	const initialAssistantMessage = {
+		"action": "view section",
+		"path": filepath,
+		"start": selection.start.line + 1,
+		"end": selection.end.line + 1
+	};
+	const prompt = `Edit the selected code: ${featureDescription}`;
 	await createPanel(context);
-	const fileDiffs = await performTask(prompt);
-	await applyDiffs(fileDiffs);
-	vscode.window.showInformationMessage('Selection edited!!');
+	const finalMessage = await performTask(prompt, {
+		'path': filepath,
+		'start': selection.start.line + 1,
+		'end': selection.end.line + 1
+		
+	}, initialAssistantMessage);
+	vscode.window.showInformationMessage(`Selection edited! ${finalMessage}`);
 };
 
 
@@ -111,10 +120,9 @@ async function debugCommand(context) {
 		return;
 	}
 	await createPanel(context);
-	const commandOutput = await runCommandsInSandbox([commandPrompt], `${Date.now()}`);
-	const prompt = getDebugPrompt(commandPrompt, commandOutput);
-	const fileDiffs = await performTask(prompt);
-	await applyDiffs(fileDiffs);
+	const task = `Debug the following command: \`${commandPrompt}\``;
+	const finalMessage = await performTask(commandPrompt, {}, {"action": "run command", "command": commandPrompt});
+	vscode.window.showInformationMessage(`Command debugged! ${finalMessage}`);
 }
 
 
@@ -139,7 +147,13 @@ const implementFeature = async (context) => {
 	}
 	await createPanel(context);
 	console.log("created panel");
-	const finalMessage = await performTask(featureDescription, {"currentFile": currentFilePath});
+	const finalMessage = await performTask(featureDescription,
+		{"currentFile": currentFilePath},
+		{
+			"action": "show file summary",
+			"path": currentFilePath
+		}
+	);
 	// todo: sanity check that the file diffs are what chadgpt wanted
 	// const validatePrompt = `You were just tasked to do the following: ${featureDescription}.You proposed the following changes: ${fileDiffs.map(renderDiffForMessage)}. Are these changes correct? If yes, answer with 'yes' - otherwise suggest a new edit.`;
 	vscode.window.showInformationMessage(`Feature implemented! ${finalMessage}`);
