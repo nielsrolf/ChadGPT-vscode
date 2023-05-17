@@ -1,8 +1,69 @@
 import React, { useState, useCallback } from "react";
 import "./Message.css";
 
+
+const parseMessage = (responseMsg) => {
+    responseMsg = responseMsg.trim().replace('```python', '```')
+        .replace('```javascript', '```')
+        .replace('```bash', '```')
+        .replace('```json', '```')
+        .replace('```js', '```')
+        .replace('```py', '```')
+        .replace('```sh', '```')
+        .replace('```ts', '```')
+        .replace('```typescript', '```')
+        .replace('```html', '```')
+        .replace('```css', '```')
+        .replace('```scss', '```')
+        .replace('```yaml', '```')
+        .replace('```yml', '```')
+        .replace('```xml', '```')
+        .replace('```c', '```')
+        .replace('```cpp', '```');
+
+    try {
+        if (responseMsg.includes('```')) {
+            const responseParts = responseMsg.split('```');
+            const response = JSON.parse(responseParts[0]);
+            // remove the final ``` from the response
+            if (responseParts[1].endsWith('```')) {
+                responseParts[1] = responseParts[1].substring(0, responseParts[1].length - 3);
+            }
+            // filter only lines that are in the new range
+            const codeLines = responseParts[1].trim().split('\n');
+            const newLines = codeLines.map(line => {
+                console.log('checkinf if we should use', line);
+                const lineNum = parseInt(line.split(':')[0]);
+                if (lineNum >= response.start)
+                    // remove line numbers (e.g. '10:') from the response if they exist
+                    return line.split(': ').slice(1).join(':');
+                if (isNaN(lineNum)) 
+                    return line;
+                return null;
+
+            }).filter(line => line !== null);
+            response.content = newLines.join('\n');
+            console.log({codeLines, newLines, response})
+            return response;
+        } else {
+            return JSON.parse(responseMsg);
+        }
+    } catch (e) {
+        return {
+            "action": "Message",
+            "info": responseMsg
+        };
+    }
+}
+
+
+
 const CodeBlock = ({ code }) => {
+    console.log("code", code);
     const [isCopied, setIsCopied] = useState(false);
+    if(code === undefined) {
+        code = '';
+    }
 
 
     let style = {};
@@ -66,60 +127,101 @@ const Message = ({ message, parentMessageId, setParentMessageId }) => {
         event.stopPropagation();
     };
 
-    const renderContent = (content) => {
-        const codeRegex = /```([\s\S]*?)```/g;
-        const parts = content.split(codeRegex);
-        return parts.map((part, index) => {
-            if (index % 2 === 1) {
-                return <CodeBlock key={index} code={part} />;
+    // const renderContent = (content) => {
+    //     const codeRegex = /```([\s\S]*?)```/g;
+    //     const parts = content.split(codeRegex);
+    //     return parts.map((part, index) => {
+    //         if (index % 2 === 1) {
+    //             return <CodeBlock key={index} code={part} />;
+    //         } else {
+    //             return part.split("\n").map((line, i) => {
+    //                 if (line.trim().startsWith("#")) {
+    //                     return <span key={`${index}-${i}`} style={{ fontWeight: "bold", fontSize: "1.5em" }}><br />{line}<br /></span>;
+    //                 } else {
+    //                     return <React.Fragment key={`${index}-${i}`}>{line}<br /></React.Fragment>;
+    //                 }
+    //             });
+    //         };
+    //     });
+    // };
+    const renderContent = (messageRaw) => {
+        const message = parseMessage(messageRaw);
+        // return nested list of JSON object
+        const renderJson = (json) => {
+            if (typeof json === "string") {
+                return <span className="json-string">{json}</span>;
+            } else if (typeof json === "number") {
+                return <span className="json-number">{json}</span>;
+            } else if (typeof json === "boolean") {
+                return <span className="json-boolean">{json ? "true" : "false"}</span>;
+            } else if (json === null) {
+                return <span className="json-null">null</span>;
+            } else if (Array.isArray(json)) {
+                return (
+                    <ul className="json-array">
+                        {json.map((item, index) => (
+                            <li key={index}>{renderJson(item)}</li>
+                        ))}
+                    </ul>
+                );
             } else {
-                return part.split("\n").map((line, i) => {
-                    if (line.trim().startsWith("#")) {
-                        return <span key={`${index}-${i}`} style={{ fontWeight: "bold", fontSize: "1.5em" }}><br />{line}<br /></span>;
-                    } else {
-                        return <React.Fragment key={`${index}-${i}`}>{line}<br /></React.Fragment>;
-                    }
-                });
-            };
-        });
+                return (
+                    <ul className="json-object">
+                        {Object.keys(json).map((key, index) => (
+                            <li key={index}>
+                                <span className="json-key">{key}</span>: {renderJson(json[key])}
+                            </li>
+                        ))}
+                    </ul>
+                );
+            }
+        };
+        // return <>json <Code></>
+        let messageNoCode = {...message, content: null};
+        return (
+            <div className="json-message">
+                <span className="json-label">{renderJson(messageNoCode)}</span>
+                <CodeBlock code={message.content} />
+            </div>
+        )
     };
 
-// add a blue line around the message if it is currently selected
-let maybeSelectedStyle = {};
-if (message.messageId === parentMessageId) {
-    maybeSelectedStyle.border = "1px solid #22ccbb";
-}
-// show only first 80 characters of the message if it is not expanded
-const displayedContent = expanded ? message.content : message.content.slice(0, 80);
-const children = expanded ? (message.children || []) : [];
-// if the message is not from assistant and has no children, add a loading icon
-const maybeLoadingIcon = message.role !== "assistant" && children.length === 0 ? (
-    <span className="loading-icon" />
-) : null;
+    // add a blue line around the message if it is currently selected
+    let maybeSelectedStyle = {};
+    if (message.messageId === parentMessageId) {
+        maybeSelectedStyle.border = "1px solid #22ccbb";
+    }
+    // show only first 80 characters of the message if it is not expanded
+    const displayedContent = expanded ? message.content : {"action": message.action};
+    const children = expanded ? (message.children || []) : [];
+    // if the message is not from assistant and has no children, add a loading icon
+    const maybeLoadingIcon = message.role !== "assistant" && children.length === 0 ? (
+        <span className="loading-icon" />
+    ) : null;
 
-return (
-    <div className={`chat-row-${message.role}`}
-        data-message-id={message.messageId}
-        onClick={handleClick}
-        style={maybeSelectedStyle}>
-        <div className="expand-button" onClick={handleCloseClick}>
-            <button className="close-button">
-                {expanded ? "[-]" : "[+]"}
-            </button>
-            <strong>{message.role}: </strong>
+    return (
+        <div className={`chat-row-${message.role}`}
+            data-message-id={message.messageId}
+            onClick={handleClick}
+            style={maybeSelectedStyle}>
+            <div className="expand-button" onClick={handleCloseClick}>
+                <button className="close-button">
+                    {expanded ? "[-]" : "[+]"}
+                </button>
+                <strong>{message.role}: </strong>
+            </div>
+            <br />
+            {renderContent(displayedContent)}
+            {/* add child messages */}
+            {(children).map((childMessage) => (
+                <Message key={childMessage.messageId}
+                    message={childMessage}
+                    parentMessageId={parentMessageId}
+                    setParentMessageId={setParentMessageId} />
+            ))}
+            {maybeLoadingIcon}
         </div>
-        <br />
-        {renderContent(displayedContent)}
-        {/* add child messages */}
-        {(children).map((childMessage) => (
-            <Message key={childMessage.messageId}
-                message={childMessage}
-                parentMessageId={parentMessageId}
-                setParentMessageId={setParentMessageId} />
-        ))}
-        {maybeLoadingIcon}
-    </div>
-);
+    );
 };
 
 export default Message;
