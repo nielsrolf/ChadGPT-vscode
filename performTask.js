@@ -100,14 +100,18 @@ const parseResponse = (responseMsg) => {
         // filter only lines that are in the new range
         const codeLines = responseParts[1].trim().split('\n');
         const newLines = codeLines.map(line => {
+            console.log('checkinf if we should use', line);
             const lineNum = parseInt(line.split(':')[0]);
-            if (!(lineNum < response.start))
+            if (lineNum >= response.start)
                 // remove line numbers (e.g. '10:') from the response if they exist
                 return line.split(': ').slice(1).join(':');
-            else
-                return null;
+            if (isNaN(lineNum)) 
+                return line;
+            return null;
+
         }).filter(line => line !== null);
         response.content = newLines.join('\n');
+        console.log({codeLines, newLines, response})
         return response;
     } else {
         return JSON.parse(responseMsg);
