@@ -3,6 +3,7 @@ vscode = require('vscode');
 const { sendChatMessage } = require('./frontend.js');
 const { runCommandsInSandbox } = require('./runInSandbox.js');
 const { createChatCompletion } = require('./createChatCompletion');
+const { get } = require('http');
 
 
 const initialPrompt = {
@@ -238,6 +239,7 @@ const isIndented = (numberedLine) => {
 
 
 const getShortContent = async (file) => {
+    file = getAbsolutePath(file);
 	let fileContents = 'File does not exist';
 	try {
 		const document = await vscode.workspace.openTextDocument(file);
@@ -284,7 +286,20 @@ const getSectionContent = async (path, start, end) => {
 }
 
 
+const getAbsolutePath = (path) => {
+    console.log('getAbsolutePath', path);
+    if(!path.startsWith('/')) {
+        const rootDir = vscode.workspace.workspaceFolders[0].uri.path;
+        path = `${rootDir}/${path}`;
+    }
+    console.log('getAbsolutePath', path);
+    return path;
+}
+
+
 const viewSection = async ({path, start, end}) => {
+    // make path absolute
+    path = getAbsolutePath(path);
     const output = await getSectionContent(path, start, end);
     return {
         "action": "view section",
