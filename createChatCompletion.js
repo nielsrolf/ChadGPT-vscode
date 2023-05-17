@@ -51,9 +51,11 @@ const createChatCompletion = async (messages, retry=5) => {
 				}
 			})
 		});
+		console.log("completion: ", completion);
 		responseMsg = completion.data.choices[0].message.content;
 		console.log("responseMsg: ", responseMsg);
 	} catch (e) {
+		console.log("OpenAI API error: ", e);
 		if(retry === 0) {
 			throw new Error("OpenAI API error");
 		}

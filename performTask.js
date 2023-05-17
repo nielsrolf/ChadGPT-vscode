@@ -36,6 +36,9 @@ const initialPrompt = {
             {
                 "action": "validate edit",
             },
+            {
+                "action": "validate and apply",
+            },
             // {
             //     "action": "search workspace",
             //     "term": "<search term>",
@@ -60,8 +63,8 @@ const initialUserPrompt = {
 const performTask = async (task, context, initialAssistantMessage) => {
     // context: e.g. {"selection": "code", "currentFile": "path/to/file", "start": 1, "end": 10}
     // currentFile: e.g. 'path/to/file'
-    let systemMsg = {...initialPrompt};
-    let userMsg = {...initialUserPrompt};
+    let systemMsg = { ...initialPrompt };
+    let userMsg = { ...initialUserPrompt };
     userMsg.request = task;
     userMsg.context = context;
     return performTasksUntilDone(systemMsg, userMsg, initialAssistantMessage);
@@ -87,18 +90,18 @@ const parseResponse = (responseMsg) => {
         .replace('```c', '```')
         .replace('```cpp', '```');
 
-    if(responseMsg.includes('```')) {
+    if (responseMsg.includes('```')) {
         const responseParts = responseMsg.split('```');
         const response = JSON.parse(responseParts[0]);
         // remove the final ``` from the response
-        if(responseParts[1].endsWith('```')) {
+        if (responseParts[1].endsWith('```')) {
             responseParts[1] = responseParts[1].substring(0, responseParts[1].length - 3);
         }
         // filter only lines that are in the new range
         const codeLines = responseParts[1].trim().split('\n');
         const newLines = codeLines.map(line => {
             const lineNum = parseInt(line.split(':')[0]);
-            if(lineNum >= response.start) 
+            if (!(lineNum < response.start))
                 // remove line numbers (e.g. '10:') from the response if they exist
                 return line.split(': ').slice(1).join(':');
             else
@@ -118,7 +121,7 @@ const formatAsJsonWithCode = (response) => {
     const output = response.output;
     delete response.output;
     const responseString = JSON.stringify(response, null, 2);
-    if(!content && !output) return responseString;
+    if (!content && !output) return responseString;
     return `${responseString}\n\`\`\`\n${content || ''}${output || ''}\n\`\`\``;
 }
 
@@ -134,16 +137,16 @@ const performTasksUntilDone = async (systemMsg, userMsg, initialAssistant) => {
             "content": JSON.stringify(userMsg, null, 2)
         }
     ];
-    if(initialAssistant){
-        initialAssistant = {"gptResponse": initialAssistant, "responseRaw": formatAsJsonWithCode(initialAssistant)};
+    if (initialAssistant) {
+        initialAssistant = { "gptResponse": initialAssistant, "responseRaw": formatAsJsonWithCode(initialAssistant) };
     }
     let currentMsgId = new Date().getTime().toString();
     await sendChatMessage(messages[0].role, messages[0].content, currentMsgId);
     currentMsgId = `${currentMsgId}.${new Date().getTime().toString()}`;
     await sendChatMessage(messages[messages.length - 1].role, messages[messages.length - 1].content, currentMsgId);
-    const fileEdits = [];
-    while(messages.length < 20) {
-        let {gptResponse, responseRaw} = initialAssistant || await askForNextAction(messages);
+    let fileEdits = [];
+    while (messages.length < 40) {
+        let { gptResponse, responseRaw } = initialAssistant || await askForNextAction(messages);
         initialAssistant = null;
         console.log('gptResponse', gptResponse, responseRaw);
         messages.push(
@@ -159,15 +162,8 @@ const performTasksUntilDone = async (systemMsg, userMsg, initialAssistant) => {
             await sortAndApplyFileEdits(fileEdits);
             return gptResponse.finalMessage;
         }
-        let userResponse = await executeTask(gptResponse, `${currentMsgId}.stream`);
-        console.log('userResponse', userResponse);
-        if (userResponse.fileEdit) {
-            fileEdits.push({...userResponse.fileEdit});
-            delete userResponse.fileEdit;
-        }
-        if (userResponse.action === 'validate edit') {
-            fileEdits[fileEdits.length - 1].validated = true;
-        }
+        let userResponse;
+        [userResponse, fileEdits] = await executeTask(gptResponse, `${currentMsgId}.stream`, fileEdits);
         messages.push({
             "role": "user",
             "content": formatAsJsonWithCode(userResponse)
@@ -178,20 +174,20 @@ const performTasksUntilDone = async (systemMsg, userMsg, initialAssistant) => {
 }
 
 
-const sortAndApplyFileEdits = async (fileEdits) => {
+const sortAndApplyFileEdits = async (fileEdits, save = false) => {
     fileEdits = fileEdits.filter(fileEdit => fileEdit.validated);
     fileEdits = fileEdits.sort((a, b) => {
         if (a.start < b.start) return 1;
         if (a.start > b.start) return -1;
         return 0;
     });
-    for(let fileEdit of fileEdits) {
-        await applyDiffs(fileEdit);
+    for (let fileEdit of fileEdits) {
+        await applyDiffs(fileEdit, save);
     }
 }
 
 
-const askForNextAction = async (messages, retry=4) => {
+const askForNextAction = async (messages, retry = 4) => {
     // send messages to GPT
     // add the surrounding JSON with role: assistant / user etc
     let responseRaw = await createChatCompletion(messages);
@@ -199,21 +195,22 @@ const askForNextAction = async (messages, retry=4) => {
     try {
         let gptResponse = parseResponse(responseRaw);
         console.log('prased', gptResponse);
-        return {gptResponse, responseRaw};
+        return { gptResponse, responseRaw };
     } catch (e) {
         if (retry > 0) {
             console.log('retrying', retry);
             return askForNextAction(messages, retry - 1);
         }
         console.log('error parsing', e);
-        return {gptResponse: null, responseRaw};
+        return { gptResponse: null, responseRaw };
     }
 }
 
 
 // tasks
-const runCommand = async ({command}, streamId) => {
+const runCommand = async ({ command }, streamId) => {
     let output = await runCommandsInSandbox([command], streamId);
+    console.log('runCommand', output);
     return {
         "action": "run command",
         "command": command,
@@ -222,7 +219,7 @@ const runCommand = async ({command}, streamId) => {
 }
 
 
-const createFile = async ({path, content}) => {
+const createFile = async ({ path, content }) => {
     let output = await runCommandsInSandbox(`echo "${content}" > ${path}`);
     return {
         "action": "create file",
@@ -233,34 +230,34 @@ const createFile = async ({path, content}) => {
 
 
 const isIndented = (numberedLine) => {
-	const line = numberedLine.split(': ').slice(1).join(': ');
-	return line.startsWith(' ') || line.startsWith('\t') || line === '';
+    const line = numberedLine.split(': ').slice(1).join(': ');
+    return line.startsWith(' ') || line.startsWith('\t') || line === '';
 };
 
 
 const getShortContent = async (file) => {
     file = getAbsolutePath(file);
-	let fileContents = 'File does not exist';
-	try {
-		const document = await vscode.workspace.openTextDocument(file);
-		fileContents = addLineNumbers(document.getText());
-	} catch (e) { }
-	// include only lines that are not indented. Note that the line numbers are already added. Insert a line with '...' where the code is removed
-	const f = [];
-	for (let i = 0; i < fileContents.length; i++) {
-		if (isIndented(fileContents[i])) {
-			if (f[f.length - 1] !== '...') {
-				f.push('...');
-			}
-		} else {
-			f.push(fileContents[i]);
-		}
-	}
-	return f.join('\n');
+    let fileContents = 'File does not exist';
+    try {
+        const document = await vscode.workspace.openTextDocument(file);
+        fileContents = addLineNumbers(document.getText());
+    } catch (e) { }
+    // include only lines that are not indented. Note that the line numbers are already added. Insert a line with '...' where the code is removed
+    const f = [];
+    for (let i = 0; i < fileContents.length; i++) {
+        if (isIndented(fileContents[i])) {
+            if (f[f.length - 1] !== '...') {
+                f.push('...');
+            }
+        } else {
+            f.push(fileContents[i]);
+        }
+    }
+    return f.join('\n');
 }
 
 
-const showFileSummary = async ({path}) => {
+const showFileSummary = async ({ path }) => {
     const output = await getShortContent(path);
     console.log('getShortContent', output);
     return {
@@ -272,9 +269,9 @@ const showFileSummary = async ({path}) => {
 
 
 const addLineNumbers = (fileContent) => {
-	const lines = fileContent.split('\n');
-	const numberedLines = lines.map((line, index) => `${index + 1}: ${line}`);
-	return numberedLines;
+    const lines = fileContent.split('\n');
+    const numberedLines = lines.map((line, index) => `${index + 1}: ${line}`);
+    return numberedLines;
 };
 
 
@@ -288,7 +285,7 @@ const getSectionContent = async (path, start, end) => {
 
 const getAbsolutePath = (path) => {
     console.log('getAbsolutePath', path);
-    if(!path.startsWith('/')) {
+    if (!path.startsWith('/')) {
         const rootDir = vscode.workspace.workspaceFolders[0].uri.path;
         path = `${rootDir}/${path}`;
     }
@@ -297,7 +294,7 @@ const getAbsolutePath = (path) => {
 }
 
 
-const viewSection = async ({path, start, end}) => {
+const viewSection = async ({ path, start, end }) => {
     // make path absolute
     path = getAbsolutePath(path);
     const output = await getSectionContent(path, start, end);
@@ -311,7 +308,7 @@ const viewSection = async ({path, start, end}) => {
 }
 
 
-const applyDiffs = async (diff) => {
+const applyDiffs = async (diff, save) => {
     console.log('applyDiffs', diff);
     const document = await vscode.workspace.openTextDocument(diff.path);
     const editRange = new vscode.Range(
@@ -325,10 +322,14 @@ const applyDiffs = async (diff) => {
     workspaceEdit.set(document.uri, [edit]);
     await vscode.workspace.applyEdit(workspaceEdit);
     await vscode.commands.executeCommand('editor.action.formatDocument', document.uri);
+    if (save) {
+        await document.save();
+    }
 }
 
 
-const previewEditFile = async ({path, start, end, content}) => {
+const previewEditFile = async ({ path, start, end, content }, fileEdits) => {
+    path = getAbsolutePath(path);
     const document = await vscode.workspace.openTextDocument(path);
     const lines = document.getText().split('\n');
     const newLines = lines.slice(0, parseInt(start) - 1).concat(content.split('\n')).concat(lines.slice(parseInt(end)));
@@ -337,31 +338,50 @@ const previewEditFile = async ({path, start, end, content}) => {
     const startLine = Math.max(parseInt(start - 4), 1);
     const newEnd = start + content.split('\n').length + 4;
     const endLine = Math.min(newEnd, newLinesWithNumbers.length);
-	const newContent = newLinesWithNumbers.slice(startLine - 1, endLine).join('\n');
-    return {
+    const newContent = newLinesWithNumbers.slice(startLine - 1, endLine).join('\n');
+    console.log({content, newContent})
+    fileEdits.push({
+        path,
+        start,
+        end,
+        content,
+        validated: false
+    });
+    return [{
         "action": "edit file",
         "path": path,
         "start": startLine,
         "end": endLine,
         "content": newContent,
-        "fileEdit": {   
-            path,
-            start,
-            end,
-            content,
-            validated: false
-        },
-        "info": "This is a preview. Check if the appended new content is correct - in particular, check if the edit specified the correct line range (i.e. the first and last lines of the edit are not duplicated, no line original line is missing). If it looks correct, respond with the 'validate' action. If you want to discard this edit, simply respond with a different action (e.g. a new file edit)."
-    }
+        "info": "This is a preview. Check if the appended new content is correct - in particular, check if the edit specified the correct line range (i.e. the first and last lines of the edit are not duplicated, no line original line is missing). If it looks correct, respond with the 'validate edit'. If you 'validate and apply', the file is saved and future  action. If you want to discard this edit, simply respond with a different action (e.g. a new file edit)."
+    }, fileEdits];
 }
 
 
-const applyEditFile = async () => {
-    return {
+const applyEditFile = async (message, fileEdits) => {
+    fileEdits[fileEdits.length - 1].validated = true;
+    return [{
         "action": "validate edit",
         "info": "The file edit is saved and will be applied when you finish the task. In future file edits, refer to the lines by their old numbers, as all diffs are applied in the end.",
-    }
+    }, fileEdits];
 }
+
+
+const validateAndApplyEditFile = async (message, fileEdits) => {
+    fileEdits[fileEdits.length - 1].validated = true;
+    await sortAndApplyFileEdits(fileEdits, true);
+    const fileSummary = (await Promise.all(
+        fileEdits.map(async (fileEdit) => {
+            const summary = await getShortContent(fileEdit.path);
+            return `# path: ${fileEdit.path}\n${summary}\n`;
+        }))).join('\n');
+    return [{
+        "action": "validate and apply",
+        "info": "The file is updated. Future edits will potentially need to refer to updated line numbers.",
+        "output": fileSummary
+    }, []];
+}
+
 
 
 // const searchFolder = async ({searchTerm, includeRegex, excludeRegex}) => {
@@ -377,38 +397,40 @@ const applyEditFile = async () => {
 // }
 
 
-const executeTask = async (message, streamId) => {
+const executeTask = async (message, streamId, fileEdits) => {
     console.log('executeTask', message);
     try {
-        switch(message.action) {
+        switch (message.action) {
             case 'run command':
-                return await runCommand(message, streamId);
+                return [await runCommand(message, streamId), fileEdits];
             case 'create file':
-                return await createFile(message);
+                return [await createFile(message), fileEdits];
             case 'show file summary':
-                return await showFileSummary(message);
+                return [await showFileSummary(message), fileEdits];
             case 'view section':
-                return await viewSection(message);
+                return [await viewSection(message), fileEdits];
             case 'edit file':
-                return await previewEditFile(message);
+                return await previewEditFile(message, fileEdits);
             case 'validate edit':
-                return await applyEditFile(message);
+                return await applyEditFile(message, fileEdits);
+            case 'validate and apply':
+                return await validateAndApplyEditFile(message, fileEdits);
             // case 'search folder':
             //     return await searchFolder(message);
             case 'task completed':
-                return message;
+                return [message, fileEdits];
             default:
                 // retry
-                return {
+                return [{
                     "error": "unknown action",
-                }
+                }, fileEdits];
         }
     } catch (error) {
         console.log('error', error.message, error.stack);
-        return {
+        return [{
             "action": message.action,
             "error": `error while performing action: ${error} - please try again.`,
-        }
+        }, fileEdits];
     }
 }
 
