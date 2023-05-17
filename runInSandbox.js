@@ -141,7 +141,9 @@ async function waitForEndToken(container, endToken, streamId) {
     const historyOutput = await new Promise((resolve) => {
         historyStream.on('data', async (data) => {
             resolve(data.toString());
-            streamToFrontend(streamId, data.toString().split(endToken)[0]);
+            if(streamId) {
+                streamToFrontend(streamId, data.toString().split(endToken)[0]);
+            }
         });
     });
     if (!historyOutput.includes(endToken)) {
@@ -174,6 +176,7 @@ async function runCommandsInSandbox(commands, streamId) {
     console.log("running commands:", commands, streamId);
     // set the vscode home dir as cwd for the command
     const homeDir = vscode.workspace.workspaceFolders[0].uri.fsPath;
+    // const homeDir = '/Users/nielswarncke/Documents/ChadGPT-vscode';
     await runInSandbox(`cd ${homeDir}`, streamId);
 
     let output = ""

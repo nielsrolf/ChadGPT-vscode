@@ -22,10 +22,10 @@ const initialPrompt = {
                 "start": "<start line>",
                 "end": "<end line>"
             },
-            // {
-            //     "action": "run command",
-            //     "command": "<bash command to run - you will see the output in the next message. Examples: 'tree', 'pip install torch', 'mkdir new-dir', 'grep' ...>"
-            // },
+            {
+                "action": "run command",
+                "command": "<bash command to run - you will see the output in the next message. Examples: 'tree', 'pip install torch', 'mkdir new-dir', 'grep' ...>"
+            },
             {
                 "action": "edit file",
                 "path": "<path/to/file>",
@@ -212,7 +212,7 @@ const askForNextAction = async (messages, retry=4) => {
 
 // tasks
 const runCommand = async ({command}, streamId) => {
-    let output = await runCommandsInSandbox(command, streamId);
+    let output = await runCommandsInSandbox([command], streamId);
     return {
         "action": "run command",
         "command": command,

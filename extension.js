@@ -121,7 +121,7 @@ async function debugCommand(context) {
 	}
 	await createPanel(context);
 	const task = `Debug the following command: \`${commandPrompt}\``;
-	const finalMessage = await performTask(commandPrompt, {}, {"action": "run command", "command": commandPrompt});
+	const finalMessage = await performTask(task, {}, {"action": "run command", "command": commandPrompt});
 	vscode.window.showInformationMessage(`Command debugged! ${finalMessage}`);
 }
 
