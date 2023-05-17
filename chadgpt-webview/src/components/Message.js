@@ -3,6 +3,7 @@ import "./Message.css";
 
 
 const parseMessage = (responseMsg) => {
+    console.log('parsing message', responseMsg);
     responseMsg = responseMsg.trim().replace('```python', '```')
         .replace('```javascript', '```')
         .replace('```bash', '```')
@@ -46,19 +47,30 @@ const parseMessage = (responseMsg) => {
             console.log({codeLines, newLines, response})
             return response;
         } else {
-            return JSON.parse(responseMsg);
+            let response = JSON.parse(responseMsg);
+            if(response.error) {
+                response.color = 'red';
+                response.content = response.error;
+                delete response.error;
+            }
+            return response;
         }
     } catch (e) {
-        return {
-            "action": "Message",
-            "info": responseMsg
-        };
+        try {
+            return JSON.parse(responseMsg);
+        } catch (e) {
+            console.log('error parsing', responseMsg);
+            return {
+                "action": "Message",
+                "info": responseMsg
+            };
+        }
     }
 }
 
 
 
-const CodeBlock = ({ code }) => {
+const CodeBlock = ({ code, color }) => {
     console.log("code", code);
     const [isCopied, setIsCopied] = useState(false);
     if(code === undefined) {
@@ -68,19 +80,12 @@ const CodeBlock = ({ code }) => {
 
     let style = {};
     let displayCode = code;
-    if (code.startsWith("before")) {
+    if (color === "red") {
         // transparent dark red background
         style = {
             backgroundColor: "rgba(255, 0, 0, 0.1)",
         };
         displayCode = code.slice(6);
-    }
-    if (code.startsWith("after")) {
-        // transparent dark green background
-        style = {
-            backgroundColor: "rgba(0, 255, 0, 0.1)",
-        };
-        displayCode = code.slice(5);
     }
     // remove line numbers if they exist (e.g. 100:some code -> some code)
     displayCode = displayCode.replace(/(\d+):/g, "");
@@ -145,8 +150,10 @@ const Message = ({ message, parentMessageId, setParentMessageId }) => {
     //     });
     // };
     const renderContent = (messageRaw) => {
+        console.log("messageRaw", messageRaw);
+        // if message is string, parse it
         const message = parseMessage(messageRaw);
-        // return nested list of JSON object
+        console.log("messageParsed", message);
         const renderJson = (json) => {
             if (typeof json === "string") {
                 return <span className="json-string">{json}</span>;
@@ -169,7 +176,7 @@ const Message = ({ message, parentMessageId, setParentMessageId }) => {
                     <ul className="json-object">
                         {Object.keys(json).map((key, index) => (
                             <li key={index}>
-                                <span className="json-key">{key}</span>: {renderJson(json[key])}
+                                <span className="json-key"><b>{key}</b></span>: {renderJson(json[key])}
                             </li>
                         ))}
                     </ul>
@@ -177,11 +184,12 @@ const Message = ({ message, parentMessageId, setParentMessageId }) => {
             }
         };
         // return <>json <Code></>
-        let messageNoCode = {...message, content: null};
+        let messageNoCode = {...message};
+        delete messageNoCode.content;
         return (
             <div className="json-message">
                 <span className="json-label">{renderJson(messageNoCode)}</span>
-                <CodeBlock code={message.content} />
+                {message.content && <CodeBlock code={message.content} color={message.color} />}
             </div>
         )
     };
@@ -192,7 +200,7 @@ const Message = ({ message, parentMessageId, setParentMessageId }) => {
         maybeSelectedStyle.border = "1px solid #22ccbb";
     }
     // show only first 80 characters of the message if it is not expanded
-    const displayedContent = expanded ? message.content : {"action": message.action};
+    const displayedContent = expanded ? renderContent(message.content) : '...';
     const children = expanded ? (message.children || []) : [];
     // if the message is not from assistant and has no children, add a loading icon
     const maybeLoadingIcon = message.role !== "assistant" && children.length === 0 ? (
@@ -211,7 +219,7 @@ const Message = ({ message, parentMessageId, setParentMessageId }) => {
                 <strong>{message.role}: </strong>
             </div>
             <br />
-            {renderContent(displayedContent)}
+            {displayedContent}
             {/* add child messages */}
             {(children).map((childMessage) => (
                 <Message key={childMessage.messageId}
