@@ -38,7 +38,7 @@ const parseMessage = (responseMsg) => {
                 if (lineNum >= response.start)
                     // remove line numbers (e.g. '10:') from the response if they exist
                     return line.split(': ').slice(1).join(':');
-                if (isNaN(lineNum)) 
+                if (isNaN(lineNum) || response.start === undefined) 
                     return line;
                 return null;
 
