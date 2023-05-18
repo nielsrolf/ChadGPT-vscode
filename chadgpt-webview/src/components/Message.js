@@ -3,7 +3,7 @@ import "./Message.css";
 
 
 const parseMessage = (responseMsg) => {
-    console.log('parsing message', responseMsg);
+    // console.log('parsing message', responseMsg);
     responseMsg = responseMsg.trim().replace('```python', '```')
         .replace('```javascript', '```')
         .replace('```bash', '```')
@@ -33,7 +33,7 @@ const parseMessage = (responseMsg) => {
             // filter only lines that are in the new range
             const codeLines = responseParts[1].trim().split('\n');
             const newLines = codeLines.map(line => {
-                console.log('checkinf if we should use', line);
+                // console.log('checkinf if we should use', line);
                 const lineNum = parseInt(line.split(':')[0]);
                 if (lineNum >= response.start)
                     // remove line numbers (e.g. '10:') from the response if they exist
@@ -44,7 +44,7 @@ const parseMessage = (responseMsg) => {
 
             }).filter(line => line !== null);
             response.content = newLines.join('\n');
-            console.log({codeLines, newLines, response})
+            // console.log({codeLines, newLines, response})
             return response;
         } else {
             let response = JSON.parse(responseMsg);
@@ -59,7 +59,7 @@ const parseMessage = (responseMsg) => {
         try {
             return JSON.parse(responseMsg);
         } catch (e) {
-            console.log('error parsing', responseMsg);
+            // console.log('error parsing', responseMsg);
             return {
                 "action": "Message",
                 "info": responseMsg
@@ -71,7 +71,7 @@ const parseMessage = (responseMsg) => {
 
 
 const CodeBlock = ({ code, color }) => {
-    console.log("code", code);
+    // console.log("code", code);
     const [isCopied, setIsCopied] = useState(false);
     if(code === undefined) {
         code = '';
@@ -88,7 +88,7 @@ const CodeBlock = ({ code, color }) => {
         displayCode = code.slice(6);
     }
     // remove line numbers if they exist (e.g. 100:some code -> some code)
-    displayCode = displayCode.replace(/(\d+):/g, "");
+    displayCode = displayCode.replace(/^\d+:/gm, "");
 
     const handleCopyClick = useCallback((event) => {
         navigator.clipboard.writeText(displayCode).then(() => {
@@ -115,7 +115,7 @@ const Message = ({ message, parentMessageId, setParentMessageId }) => {
             return;
         }
         setParentMessageId((prevParentMessageId) => {
-            console.log("prevParentMessageId", prevParentMessageId);
+            // console.log("prevParentMessageId", prevParentMessageId);
             if (prevParentMessageId === message.messageId) {
                 return "";
             } else {
@@ -132,28 +132,9 @@ const Message = ({ message, parentMessageId, setParentMessageId }) => {
         event.stopPropagation();
     };
 
-    // const renderContent = (content) => {
-    //     const codeRegex = /```([\s\S]*?)```/g;
-    //     const parts = content.split(codeRegex);
-    //     return parts.map((part, index) => {
-    //         if (index % 2 === 1) {
-    //             return <CodeBlock key={index} code={part} />;
-    //         } else {
-    //             return part.split("\n").map((line, i) => {
-    //                 if (line.trim().startsWith("#")) {
-    //                     return <span key={`${index}-${i}`} style={{ fontWeight: "bold", fontSize: "1.5em" }}><br />{line}<br /></span>;
-    //                 } else {
-    //                     return <React.Fragment key={`${index}-${i}`}>{line}<br /></React.Fragment>;
-    //                 }
-    //             });
-    //         };
-    //     });
-    // };
     const renderContent = (messageRaw) => {
-        console.log("messageRaw", messageRaw);
         // if message is string, parse it
         const message = parseMessage(messageRaw);
-        console.log("messageParsed", message);
         const renderJson = (json) => {
             if (typeof json === "string") {
                 return <span className="json-string">{json}</span>;
@@ -183,9 +164,9 @@ const Message = ({ message, parentMessageId, setParentMessageId }) => {
                 );
             }
         };
-        // return <>json <Code></>
         let messageNoCode = {...message};
         delete messageNoCode.content;
+        delete messageNoCode.color;
         return (
             <div className="json-message">
                 <span className="json-label">{renderJson(messageNoCode)}</span>

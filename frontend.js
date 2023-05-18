@@ -2,7 +2,7 @@ let vscode;
 try {
 	vscode = require('vscode');
 } catch (e) {
-	console.log("Could not load vscode");
+	// console.log("Could not load vscode");
 }
 const path = require('path');
 const fs = require('fs');
@@ -56,23 +56,23 @@ const createPanel = async (context) => {
 				});
 			}
 		} else {
-			console.log('no messages file found');
+			// console.log('no messages file found');
 		}
 	};
 	await loadMessages();
 	// Handle messages received from the view
 	panel.webview.onDidReceiveMessage(async (message) => {
-		console.log("received message", message);
+		// console.log("received message", message);
 		// save the message
 		await saveMessage(message.role, message.content, message.messageId);
 		// send the message to the assistant
 		const response = await getAssistantResponse(message.history);
-		console.log({ response });
+		// console.log({ response });
 		// send the response to the view
 		const timestamp = new Date().getTime();
 		const responseId = `${message.messageId}.${timestamp}`
 		await saveMessage("assistant", response, responseId);
-		console.log("saved")
+		// console.log("saved")
 		panel.webview.postMessage({
 			"role": "assistant",
 			"content": response,
@@ -122,7 +122,7 @@ async function saveMessage(role, content, messageId = Date.now().toString()) {
 	try {
 		await vscode.workspace.fs.createDirectory(chadGptDirUri);
 	} catch (error) {
-		console.log(error, error.code);
+		// console.log(error, error.code);
 		if (error.code !== 'FileExists') {
 			throw error;
 		}
@@ -136,11 +136,11 @@ async function saveMessage(role, content, messageId = Date.now().toString()) {
 		if (error.code === 'FileNotFound') {
 			await vscode.workspace.fs.writeFile(messagesFileUri, Buffer.from(JSON.stringify([messageObj], null, 2)));
 		} else {
-			console.log("wtf");
-			console.log(error.code);
-			console.log(error);
-			console.log(role, content);
-			console.log("message not saved", error);
+			// console.log("wtf");
+			// console.log(error.code);
+			// console.log(error);
+			// console.log(role, content);
+			// console.log("message not saved", error);
 		}
 	}
 }
@@ -149,10 +149,10 @@ async function saveMessage(role, content, messageId = Date.now().toString()) {
 async function sendChatMessage(role, content, messageId) {
 	// Send the message to the web view
 	const messageObj = { "role": role, "content": content, "messageId": messageId };
-	console.log('sending message', messageObj)
+	// console.log('sending message', messageObj)
 	// Send the message to the web view
 	panel.webview.postMessage(messageObj);
-	console.log('message sent, saving');
+	// console.log('message sent, saving');
 	await saveMessage(role, content, messageId);
 }
 
@@ -160,9 +160,9 @@ async function sendChatMessage(role, content, messageId) {
 
 const streamToFrontend = (messageId, newContent) => {
 	if (!newContent) return;
-	console.log({ messageId })
+	// console.log({ messageId })
 	const messageObj = { "type": "stream", "messageId": messageId, "role": "system", "content": `\`\`\`${newContent}\`\`\`` };
-	console.log('streaming', messageObj);
+	// console.log('streaming', messageObj);
 	// Send the message to the web view
 	panel.webview.postMessage(messageObj);
 };
@@ -183,7 +183,7 @@ async function getAssistantResponse(history) {
 		});
 	}
     const responseMsg = await createChatCompletion(messages);
-	console.log(responseMsg);
+	// console.log(responseMsg);
 	const formattedMsg = responseMsg
 		.replace('```javascript', '```')
 		.replace('```js', '```')

@@ -5,6 +5,7 @@ const { runCommandsInSandbox } = require('./runInSandbox.js');
 const { createChatCompletion } = require('./createChatCompletion');
 const { get } = require('http');
 
+const MAX_MESSAGES = 40; 
 
 const initialPrompt = {
     "task": "Code assistant",
@@ -100,7 +101,7 @@ const parseResponse = (responseMsg) => {
         // filter only lines that are in the new range
         const codeLines = responseParts[1].trim().split('\n');
         const newLines = codeLines.map(line => {
-            console.log('checkinf if we should use', line);
+            // console.log('checkinf if we should use', line);
             const lineNum = parseInt(line.split(':')[0]);
             if (lineNum >= response.start)
                 // remove line numbers (e.g. '10:') from the response if they exist
@@ -111,7 +112,7 @@ const parseResponse = (responseMsg) => {
 
         }).filter(line => line !== null);
         response.content = newLines.join('\n');
-        console.log({codeLines, newLines, response})
+        // console.log({codeLines, newLines, response})
         return response;
     } else {
         return JSON.parse(responseMsg);
@@ -149,10 +150,10 @@ const performTasksUntilDone = async (systemMsg, userMsg, initialAssistant) => {
     currentMsgId = `${currentMsgId}.${new Date().getTime().toString()}`;
     await sendChatMessage(messages[messages.length - 1].role, messages[messages.length - 1].content, currentMsgId);
     let fileEdits = [];
-    while (messages.length < 40) {
+    while (messages.length < MAX_MESSAGES) {
         let { gptResponse, responseRaw } = initialAssistant || await askForNextAction(messages);
         initialAssistant = null;
-        console.log('gptResponse', gptResponse, responseRaw);
+        // console.log('gptResponse', gptResponse, responseRaw);
         messages.push(
             {
                 "role": "assistant",
@@ -195,17 +196,17 @@ const askForNextAction = async (messages, retry = 4) => {
     // send messages to GPT
     // add the surrounding JSON with role: assistant / user etc
     let responseRaw = await createChatCompletion(messages);
-    console.log('askForNextAction', responseRaw);
+    // console.log('askForNextAction', responseRaw);
     try {
         let gptResponse = parseResponse(responseRaw);
-        console.log('prased', gptResponse);
+        // console.log('prased', gptResponse);
         return { gptResponse, responseRaw };
     } catch (e) {
         if (retry > 0) {
-            console.log('retrying', retry);
+            // console.log('retrying', retry);
             return askForNextAction(messages, retry - 1);
         }
-        console.log('error parsing', e);
+        // console.log('error parsing', e);
         return { gptResponse: null, responseRaw };
     }
 }
@@ -214,7 +215,7 @@ const askForNextAction = async (messages, retry = 4) => {
 // tasks
 const runCommand = async ({ command }, streamId) => {
     let output = await runCommandsInSandbox([command], streamId);
-    console.log('runCommand', output);
+    // console.log('runCommand', output);
     return {
         "action": "run command",
         "command": command,
@@ -263,7 +264,7 @@ const getShortContent = async (file) => {
 
 const showFileSummary = async ({ path }) => {
     const output = await getShortContent(path);
-    console.log('getShortContent', output);
+    // console.log('getShortContent', output);
     return {
         "action": "show file summary",
         "path": path,
@@ -288,12 +289,12 @@ const getSectionContent = async (path, start, end) => {
 
 
 const getAbsolutePath = (path) => {
-    console.log('getAbsolutePath', path);
+    // console.log('getAbsolutePath', path);
     if (!path.startsWith('/')) {
         const rootDir = vscode.workspace.workspaceFolders[0].uri.path;
         path = `${rootDir}/${path}`;
     }
-    console.log('getAbsolutePath', path);
+    // console.log('getAbsolutePath', path);
     return path;
 }
 
@@ -313,7 +314,7 @@ const viewSection = async ({ path, start, end }) => {
 
 
 const applyDiffs = async (diff, save) => {
-    console.log('applyDiffs', diff);
+    // console.log('applyDiffs', diff);
     const document = await vscode.workspace.openTextDocument(diff.path);
     const editRange = new vscode.Range(
         new vscode.Position(parseInt(diff.start) - 1, 0),
@@ -343,7 +344,7 @@ const previewEditFile = async ({ path, start, end, content }, fileEdits) => {
     const newEnd = start + content.split('\n').length + 4;
     const endLine = Math.min(newEnd, newLinesWithNumbers.length);
     const newContent = newLinesWithNumbers.slice(startLine - 1, endLine).join('\n');
-    console.log({content, newContent})
+    // console.log({content, newContent})
     fileEdits.push({
         path,
         start,
@@ -402,7 +403,7 @@ const validateAndApplyEditFile = async (message, fileEdits) => {
 
 
 const executeTask = async (message, streamId, fileEdits) => {
-    console.log('executeTask', message);
+    // console.log('executeTask', message);
     try {
         switch (message.action) {
             case 'run command':
@@ -430,7 +431,7 @@ const executeTask = async (message, streamId, fileEdits) => {
                 }, fileEdits];
         }
     } catch (error) {
-        console.log('error', error.message, error.stack);
+        // console.log('error', error.message, error.stack);
         return [{
             "action": message.action,
             "error": `error while performing action: ${error} - please try again.`,

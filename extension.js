@@ -57,7 +57,7 @@ const getDebugPrompt = (command, output) => {
 
 
 const applyDiffs = async (fileDiffs) => {
-	console.log("applying: ", fileDiffs);
+	// console.log("applying: ", fileDiffs);
 	const sortedFileDiffs = fileDiffs.sort((a, b) => b.range.start.line - a.range.start.line);
 
 	for (const diff of sortedFileDiffs) {
@@ -135,7 +135,7 @@ const implementFeature = async (context) => {
 		prompt: 'Enter a feature description',
 		placeHolder: 'e.g. "add a menu bar to the top of the page using a new component"'
 	});
-	console.log("feature description: ", featureDescription);
+	// console.log("feature description: ", featureDescription);
 	if (!featureDescription) {
 		return;
 	}
@@ -143,10 +143,10 @@ const implementFeature = async (context) => {
 	try {
 		currentFilePath = editor.document.uri.path;
 	} catch (e) {
-		console.log(e);
+		// console.log(e);
 	}
 	await createPanel(context);
-	console.log("created panel");
+	// console.log("created panel");
 	const finalMessage = await performTask(featureDescription,
 		{"currentFile": currentFilePath},
 		{
@@ -163,7 +163,7 @@ const implementFeature = async (context) => {
 
 
 function activate(context) {
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
+	// Use the console to output diagnostic information (// console.log) and errors (console.error)
 	// This line of code will only be executed once when your extension is activated
 	// The command has been defined in the package.json file
 	// Now provide the implementation of the command with  registerCommand

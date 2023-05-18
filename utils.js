@@ -2,7 +2,7 @@ let vscode;
 try {
 	vscode = require('vscode');
 } catch (e) {
-	console.log("Could not load vscode");
+	// console.log("Could not load vscode");
 }
 const path = require('path');
 
@@ -89,7 +89,7 @@ const getShortContent = async (file) => {
 
 const getRepoContext = async () => {
 	const srcFiles = await getContextFiles();
-	console.log("srcFiles: ", srcFiles)
+	// console.log("srcFiles: ", srcFiles)
 	return srcFiles.map(i => i.path).join('\n');
 	// const fileContents = await Promise.all(srcFiles.map(getShortContent));
 	// // make it a string
@@ -100,7 +100,7 @@ const getRepoContext = async () => {
 
 const getAdditionalContext = async (requiredContext) => {
 	// returns: # file: <filepath>:<startLine>-<endLine>\n```<code>```
-	console.log(requiredContext)
+	// console.log(requiredContext)
 	if (!requiredContext.includes(':')) {
 		return await getShortContent(requiredContext);
 	}
@@ -114,7 +114,7 @@ const getAdditionalContext = async (requiredContext) => {
 		fileContents = addLineNumbers(document.getText());
 		code_before = document.getText().split('\n').slice(startLine - 1, endLine).join('\n');
 	} catch (e) {
-		console.log(e);
+		// console.log(e);
 	 }
 
 	const requiredCode = fileContents.split('\n').slice(startLine - 1, endLine).join('\n');
