@@ -1,7 +1,9 @@
 # chadgpt README
 
+[Demo](https://youtu.be/9sS2RisrarM)
 
 Not a maintained or reliable thing at this moment, but a very cool proof of concept.
+
 ## Features
 `cmd + P` ->
 - `ChadGPT: open chat`
