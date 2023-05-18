@@ -83,14 +83,15 @@ async function createOrGetSandbox() {
     const imageInfo = await getOrCreateImage();
     console.log("imageInfo", imageInfo);
     // define options for the container
+    const workspaceFolder = vscode.workspace.workspaceFolders[0].uri.fsPath;
 
     const containerOptions = {
         Image: imageInfo.RepoTags[0],
         Tty: true,
         Cmd: ['/bin/bash', '-c', 'iptables -A OUTPUT -p tcp -m multiport --dports 80,443 -m conntrack --ctstate NEW -m multiport --dports 80,443 ! --syn -m comment --comment "Block POST and PUT requests" -j DROP && screen -S sandbox -dm && sleep infinity'],
         HostConfig: {
-            Binds: [`${__dirname}:${__dirname}`],
-            WorkingDir: `${__dirname}`,
+            Binds: [`${workspaceFolder}:${workspaceFolder}`],
+            WorkingDir: `${workspaceFolder}`,
             Privileged: true,
             AutoRemove: true,
         },

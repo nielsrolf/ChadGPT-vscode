@@ -26,7 +26,7 @@ const initialPrompt = {
             },
             {
                 "action": "run command",
-                "command": "<bash command to run - you will see the output in the next message. Examples: 'tree', 'pip install torch', 'mkdir new-dir', 'grep' ...>"
+                "command": "<bash command to run - you will see the output in the next message. Examples: 'ls -R', 'pip install torch', 'mkdir new-dir', 'grep' ...>"
             },
             {
                 "action": "edit file",
@@ -215,21 +215,12 @@ const askForNextAction = async (messages, retry = 4) => {
 // tasks
 const runCommand = async ({ command }, streamId) => {
     let output = await runCommandsInSandbox([command], streamId);
+    console.log('runCommand', {command, output});
     // console.log('runCommand', output);
     return {
         "action": "run command",
         "command": command,
         "output": output
-    }
-}
-
-
-const createFile = async ({ path, content }) => {
-    let output = await runCommandsInSandbox(`echo "${content}" > ${path}`);
-    return {
-        "action": "create file",
-        "path": path,
-        "output": 'ok'
     }
 }
 
@@ -314,7 +305,7 @@ const viewSection = async ({ path, start, end }) => {
 
 
 const applyDiffs = async (diff, save) => {
-    // console.log('applyDiffs', diff);
+    console.log('applyDiffs', diff);
     const document = await vscode.workspace.openTextDocument(diff.path);
     const editRange = new vscode.Range(
         new vscode.Position(parseInt(diff.start) - 1, 0),
@@ -335,8 +326,16 @@ const applyDiffs = async (diff, save) => {
 
 const previewEditFile = async ({ path, start, end, content }, fileEdits) => {
     path = getAbsolutePath(path);
-    const document = await vscode.workspace.openTextDocument(path);
-    const lines = document.getText().split('\n');
+    // create file if it does not exist, using VSCode API
+    let lines = [];
+    try {
+        const document = await vscode.workspace.openTextDocument(path);
+        lines = document.getText().split('\n');
+    } catch (e) {
+        // create the file
+        await runCommandsInSandbox([`touch ${path}`]);
+        lines = [];
+    }
     const newLines = lines.slice(0, parseInt(start) - 1).concat(content.split('\n')).concat(lines.slice(parseInt(end)));
     const newDocument = newLines.join('\n');
     const newLinesWithNumbers = addLineNumbers(newDocument);
@@ -408,8 +407,6 @@ const executeTask = async (message, streamId, fileEdits) => {
         switch (message.action) {
             case 'run command':
                 return [await runCommand(message, streamId), fileEdits];
-            case 'create file':
-                return [await createFile(message), fileEdits];
             case 'show file summary':
                 return [await showFileSummary(message), fileEdits];
             case 'view section':
