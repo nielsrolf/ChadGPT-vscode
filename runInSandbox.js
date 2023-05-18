@@ -7,14 +7,14 @@ let vscode;
 try {
 	vscode = require('vscode');
 } catch (e) {
-	console.log("Could not load vscode");
+	// console.log("Could not load vscode");
 }
 
 
 const docker = new Docker({
     socketPath: '/var/run/docker.sock',
 });
-const imageName = 'chadgpt-sandbox';
+const imageName = 'chadgpt-sandbox:latest';
 
 
 async function buildImage() {
@@ -35,13 +35,13 @@ async function buildImage() {
     await new Promise((resolve, reject) => {
         docker.modem.followProgress(stream, (err, res) => {
             if (err) {
-                console.log(err);
+                // console.log(err);
                 reject(err);
             } else {
                 resolve(res);
             }
         }, (event) => {
-            console.log(event.stream ? event.stream.trim() : event);
+            // console.log(event.stream ? event.stream.trim() : event);
         });
     });
 }
@@ -49,6 +49,7 @@ async function buildImage() {
 
 async function getOrCreateImage() {
     const images = await docker.listImages();
+    console.log("images", images.map(image => image.RepoTags));
     const imageExists = images.some(image => {
         return image.RepoTags.includes(imageName);
     });
@@ -74,22 +75,23 @@ async function createOrGetSandbox() {
             return docker.getContainer(existingContainers[0].Id);
         }
         // if the container is not running, remove it
-        const container = docker.getContainer(existingContainers[0].Id);
+    const container = docker.getContainer(existingContainers[0].Id);
         await container.remove();
     }
-
+    console.log("Creating new sandbox");
     // get the image
     const imageInfo = await getOrCreateImage();
-
+    console.log("imageInfo", imageInfo);
     // define options for the container
+    const workspaceFolder = vscode.workspace.workspaceFolders[0].uri.fsPath;
 
     const containerOptions = {
         Image: imageInfo.RepoTags[0],
         Tty: true,
         Cmd: ['/bin/bash', '-c', 'iptables -A OUTPUT -p tcp -m multiport --dports 80,443 -m conntrack --ctstate NEW -m multiport --dports 80,443 ! --syn -m comment --comment "Block POST and PUT requests" -j DROP && screen -S sandbox -dm && sleep infinity'],
         HostConfig: {
-            Binds: [`${__dirname}:${__dirname}`],
-            WorkingDir: `${__dirname}`,
+            Binds: [`${workspaceFolder}:${workspaceFolder}`],
+            WorkingDir: `${workspaceFolder}`,
             Privileged: true,
             AutoRemove: true,
         },
@@ -97,6 +99,7 @@ async function createOrGetSandbox() {
     };
     // create and start the container
     const container = await docker.createContainer(containerOptions);
+    console.log("container", container);
     await container.start();
     // wait 1 second
     await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -131,7 +134,7 @@ async function runInSandbox(cmd, streamId) {
 
 
 async function waitForEndToken(container, endToken, streamId) {
-    console.log("streamId", streamId);
+    // console.log("streamId", streamId);
     const history = await container.exec({
         Cmd: ['cat', `/tmp/${streamId}`],
         AttachStdout: true,
@@ -141,7 +144,9 @@ async function waitForEndToken(container, endToken, streamId) {
     const historyOutput = await new Promise((resolve) => {
         historyStream.on('data', async (data) => {
             resolve(data.toString());
-            streamToFrontend(streamId, data.toString().split(endToken)[0]);
+            if(streamId) {
+                streamToFrontend(streamId, data.toString().split(endToken)[0]);
+            }
         });
     });
     if (!historyOutput.includes(endToken)) {
@@ -171,9 +176,10 @@ async function restartSandbox() {
 
 
 async function runCommandsInSandbox(commands, streamId) {
-    console.log("running commands:", commands, streamId);
+    // console.log("running commands:", commands, streamId);
     // set the vscode home dir as cwd for the command
     const homeDir = vscode.workspace.workspaceFolders[0].uri.fsPath;
+    // const homeDir = '/Users/nielswarncke/Documents/ChadGPT-vscode';
     await runInSandbox(`cd ${homeDir}`, streamId);
 
     let output = ""
@@ -193,7 +199,7 @@ async function runCommandsInSandbox(commands, streamId) {
 async function testCommands() {
     for(let i = 0; i < 1; i++) {
         let output = await runCommandsInSandbox(['pwd', 'python music.py', 'export a=1', 'echo $a', 'pip install numpy']);
-        console.log(output, i);
+        // console.log(output, i);
 
     }
 }

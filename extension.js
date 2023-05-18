@@ -57,7 +57,7 @@ const getDebugPrompt = (command, output) => {
 
 
 const applyDiffs = async (fileDiffs) => {
-	console.log("applying: ", fileDiffs);
+	// console.log("applying: ", fileDiffs);
 	const sortedFileDiffs = fileDiffs.sort((a, b) => b.range.start.line - a.range.start.line);
 
 	for (const diff of sortedFileDiffs) {
@@ -88,14 +88,23 @@ const editSelection = async (context) => {
 		return;
 	}
 	const filepath = editor.document.uri.path;
-	const requiredContext = `${filepath}:${selection.start.line + 1}-${selection.end.line + 1}`;
-	const selectionContext = await getAdditionalContext(requiredContext);
-	const selectedCode = selectionContext.message;
-	const prompt = getEditPrompt(selectedCode, featureDescription);
+
+	// context: e.g. {"selection": "code", "currentFile": "path/to/file", "start": 1, "end": 10}
+	const initialAssistantMessage = {
+		"action": "view section",
+		"path": filepath,
+		"start": selection.start.line + 1,
+		"end": selection.end.line + 1
+	};
+	const prompt = `Edit the selected code: ${featureDescription}`;
 	await createPanel(context);
-	const fileDiffs = await performTask(prompt);
-	await applyDiffs(fileDiffs);
-	vscode.window.showInformationMessage('Selection edited!!');
+	const finalMessage = await performTask(prompt, {
+		'path': filepath,
+		'start': selection.start.line + 1,
+		'end': selection.end.line + 1
+		
+	}, initialAssistantMessage);
+	vscode.window.showInformationMessage(`Selection edited! ${finalMessage}`);
 };
 
 
@@ -111,10 +120,9 @@ async function debugCommand(context) {
 		return;
 	}
 	await createPanel(context);
-	const commandOutput = await runCommandsInSandbox([commandPrompt], `${Date.now()}`);
-	const prompt = getDebugPrompt(commandPrompt, commandOutput);
-	const fileDiffs = await performTask(prompt);
-	await applyDiffs(fileDiffs);
+	const task = `Debug the following command: \`${commandPrompt}\``;
+	const finalMessage = await performTask(task, {}, {"action": "run command", "command": commandPrompt});
+	vscode.window.showInformationMessage(`Command debugged! ${finalMessage}`);
 }
 
 
@@ -127,7 +135,7 @@ const implementFeature = async (context) => {
 		prompt: 'Enter a feature description',
 		placeHolder: 'e.g. "add a menu bar to the top of the page using a new component"'
 	});
-	console.log("feature description: ", featureDescription);
+	// console.log("feature description: ", featureDescription);
 	if (!featureDescription) {
 		return;
 	}
@@ -135,25 +143,27 @@ const implementFeature = async (context) => {
 	try {
 		currentFilePath = editor.document.uri.path;
 	} catch (e) {
-		console.log(e);
+		// console.log(e);
 	}
-	const prompt = getImplementPrompt(featureDescription, currentFilePath);
-	console.log("prompt: ", prompt);
 	await createPanel(context);
-	console.log("created panel");
-	const fileDiffs = await performTask(prompt, currentFilePath);
-	console.log("file diffs: ", fileDiffs)
-	await applyDiffs(fileDiffs);
+	// console.log("created panel");
+	const finalMessage = await performTask(featureDescription,
+		{"currentFile": currentFilePath},
+		{
+			"action": "show file summary",
+			"path": currentFilePath
+		}
+	);
 	// todo: sanity check that the file diffs are what chadgpt wanted
 	// const validatePrompt = `You were just tasked to do the following: ${featureDescription}.You proposed the following changes: ${fileDiffs.map(renderDiffForMessage)}. Are these changes correct? If yes, answer with 'yes' - otherwise suggest a new edit.`;
-	vscode.window.showInformationMessage('Feature implemented!');
+	vscode.window.showInformationMessage(`Feature implemented! ${finalMessage}`);
 }
 
 
 
 
 function activate(context) {
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
+	// Use the console to output diagnostic information (// console.log) and errors (console.error)
 	// This line of code will only be executed once when your extension is activated
 	// The command has been defined in the package.json file
 	// Now provide the implementation of the command with  registerCommand
