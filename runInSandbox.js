@@ -107,6 +107,20 @@ async function createOrGetSandbox() {
     return container;
 }
 
+
+const hash = (str) => {
+    let hashValue = 0;
+    for (let i = 0; i < str.length; i++) {
+        hashValue = (31 * hashValue + str.charCodeAt(i)) >>> 0;
+    }
+    console.log("hashValue", hashValue);
+    return `${hashValue}`;
+};
+
+
+const getStreamFile = (streamId) => {
+    return `/tmp/${hash(streamId)}`;
+};
 /**
  * run a command in the sandbox and return the captured output.
  * Commands are run in a tmux session called sandbox.
@@ -121,8 +135,7 @@ async function runInSandbox(cmd, streamId) {
     const endToken = Math.random().toString(36).substring(7);
     // escape the cmd to prevent it from being interpreted by the shell.
     cmd = cmd.replace(`\\`, `\\\\`).replace('$', '\\$');
-
-    const cmdWritingToHistory = `${cmd} > /tmp/${streamId} 2>&1 && echo ${endToken} >> /tmp/${streamId} || echo ${endToken} >> /tmp/${streamId}`;
+    const cmdWritingToHistory = `${cmd} > ${getStreamFile(streamId)} 2>&1 && echo ${endToken} >> ${getStreamFile(streamId)} || echo ${endToken} >> ${getStreamFile(streamId)}`;
     const exec = await container.exec({
         Cmd: ['screen', '-S', 'sandbox', '-X', 'stuff', `${cmdWritingToHistory}`+'\n'],
         AttachStderr: true,
@@ -136,7 +149,7 @@ async function runInSandbox(cmd, streamId) {
 async function waitForEndToken(container, endToken, streamId) {
     // console.log("streamId", streamId);
     const history = await container.exec({
-        Cmd: ['cat', `/tmp/${streamId}`],
+        Cmd: ['cat', `${getStreamFile(streamId)}`],
         AttachStdout: true,
         AttachStderr: true,
     });
