@@ -161,7 +161,7 @@ async function sendChatMessage(role, content, messageId) {
 const streamToFrontend = (messageId, newContent) => {
 	if (!newContent) return;
 	// console.log({ messageId })
-	const messageObj = { "type": "stream", "messageId": messageId, "role": "system", "content": `\`\`\`${newContent}\`\`\`` };
+	const messageObj = { "type": "stream", "messageId": messageId, "role": "system", "content": newContent };
 	// console.log('streaming', messageObj);
 	// Send the message to the web view
 	panel.webview.postMessage(messageObj);

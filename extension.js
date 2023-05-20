@@ -1,80 +1,9 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 const vscode = require('vscode');
-const {runCommandsInSandbox, restartSandbox} = require('./runInSandbox.js');
+const {restartSandbox} = require('./runInSandbox.js');
 const {createPanel} = require('./frontend.js');
-const {getAdditionalContext} = require('./utils.js');
 const {performTask} = require('./performTask.js');
-
-
-// interface Range {
-// 	start: {
-// 		line: number,
-// 		character: number
-// 	},
-// 	end: {
-// 		line: number,
-// 		character: number
-// 	}
-// }
-
-// interface FileDiff {
-// 	range: Range,
-// 	code_before: string,
-// 	code_after: string,
-// 	filename: string
-//  request: string,
-//  message: string
-// }
-
-// interface RequiredContent {
-// 	range: Range,
-// 	code_before: string,
-// 	filename: string
-//  request: string,
-//  message: string
-// }
-
-
-const getImplementPrompt = (featureDescription, currentFilePath) => {
-	let prefix = "";
-	if (currentFilePath) {
-		prefix = `In the file ${currentFilePath}:\n`;
-	}
-	return `${prefix}I want to implement the following feature: ${featureDescription}.`;
-};
-
-
-const getEditPrompt = (selection, featureDescription) => {
-	return `In this section:\n${selection}\nI want you to do this: ${featureDescription}`
-}
-
-
-const getDebugPrompt = (command, output) => {
-	return `I need your help debugging this command:\n\`\`\`${command}\`\`\`\nCurrently, I get:\n\`\`\`${output}\`\`\`\n`;
-}
-
-
-
-const applyDiffs = async (fileDiffs) => {
-	// console.log("applying: ", fileDiffs);
-	const sortedFileDiffs = fileDiffs.sort((a, b) => b.range.start.line - a.range.start.line);
-
-	for (const diff of sortedFileDiffs) {
-		const document = await vscode.workspace.openTextDocument(diff.filepath);
-		const editRange = new vscode.Range(
-			new vscode.Position(parseInt(diff.range.start.line) - 1, parseInt(diff.range.start.character)),
-			new vscode.Position(parseInt(diff.range.end.line), parseInt(diff.range.end.character))
-		);
-		// remove the line numbers from the code if they exist
-		const codeAfter = diff.code_after.replace(/^[0-9]+: /gm, '');
-		const edit = new vscode.TextEdit(editRange, codeAfter + '\n');
-		const workspaceEdit = new vscode.WorkspaceEdit();
-		workspaceEdit.set(document.uri, [edit]);
-		await vscode.workspace.applyEdit(workspaceEdit);
-		await vscode.commands.executeCommand('editor.action.formatDocument', document.uri);
-	}
-}
 
 
 const editSelection = async (context) => {

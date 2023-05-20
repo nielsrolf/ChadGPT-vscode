@@ -23,6 +23,10 @@
         "chadgpt.apiKey": {
           "type": "string",
           "description": "API key for the OpenAI API"
+        },
+        "chadgpt.model": {
+          "type": "string",
+          "description": "Model to use for the OpenAI API (gpt-3.5-turbo and gpt-4 are supported)"
         }
       }
     },

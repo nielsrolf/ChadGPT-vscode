@@ -29,8 +29,43 @@ const getOpenAIKey = async () => {
 }
 
 
+const getModel = async () => {
+	const model = vscode.workspace.getConfiguration().get('chadgpt.model')
+	console.log("model from settings: ", model);
+	if (model !== undefined && model !== null && model !== "") {
+		return model;
+	}
+	const modelSelection = await vscode.window.showQuickPick([
+		{
+			label: 'GPT-4',
+			description: 'The latest version of GPT-4',
+			model: 'gpt-4'
+		},
+		{
+			label: 'GPT-3.5 Turbo',
+			description: 'The latest version of GPT-3.5 Turbo',
+			model: 'gpt-3.5-turbo'
+		}
+	], {
+		placeHolder: 'Please select a model'
+	});
+	console.log("modelSelection: ", modelSelection);
+	if (modelSelection) {
+		// Save the model to the VSCode workspace configuration
+		await vscode.workspace.getConfiguration().update('chadgpt.model', modelSelection.model, vscode.ConfigurationTarget.Global);
+		return modelSelection.model;
+	} else {
+		vscode.window.showErrorMessage('Please select a model');
+		throw new Error("Please select a model");
+	}
+}
+
+
+
 const createChatCompletion = async (messages, retry=5) => {
 	// console.log("messages: ", messages);
+	const model = await getModel();
+	console.log("model: ", model);
 	if (messages.length > 50) {
 		throw new Error("Too many messages");
 	}
@@ -43,7 +78,7 @@ const createChatCompletion = async (messages, retry=5) => {
 	try {
 		const completion = await openai.createChatCompletion({
 			// model: "gpt-3.5-turbo",
-			model: "gpt-4",
+			model: model,
 			messages: messages.map(x => {
 				return {
 					"role": x.role,
@@ -57,6 +92,7 @@ const createChatCompletion = async (messages, retry=5) => {
 	} catch (e) {
 		// console.log("OpenAI API error: ", e);
 		if(retry === 0) {
+			await vscode.window.showErrorMessage(`OpenAI API error: ${e.message}`);
 			throw new Error("OpenAI API error");
 		}
 		return await createChatCompletion(messages, retry - 1);

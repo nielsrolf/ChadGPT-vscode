@@ -40,12 +40,6 @@ const initialPrompt = {
             {
                 "action": "validate and apply",
             },
-            // {
-            //     "action": "search workspace",
-            //     "term": "<search term>",
-            //     "include": "<regex to include files, optional>",
-            //     "exclude": "<regex to exclude files, optional>"
-            // },
             {
                 "action": "task completed",
                 "finalMessage": "<message to show when task is completed>"
@@ -118,6 +112,27 @@ const parseResponse = (responseMsg) => {
         return JSON.parse(responseMsg);
     }
 }
+
+
+const validateResponse = (response) => {
+    const actionTemplate = initialPrompt.response_format.options.find(option => option.action === response.action);
+    if (!actionTemplate) {
+        throw new Error(`Invalid action. Action must be one of: ${initialPrompt.response_format.options.map(option => option.action).join(', ')}`);
+    }
+    const expectedKeys = Object.keys(actionTemplate);
+    const actualKeys = Object.keys(response).filter(key => key !== 'content' && key !== 'output')
+    console.log({expectedKeys, actualKeys})
+    // check that all keys are present
+    if((expectedKeys.some(key => !actualKeys.includes(key)))) {
+        throw new Error(`Invalid response. Response must include all keys specified in the action template: ${Object.keys(actionTemplate).join(', ')}`);
+    }
+    // check that all keys are valid
+    if(actualKeys.some(key => !expectedKeys.includes(key))) {
+        throw new Error(`Invalid response. Response must not include any keys not specified in the action template: ${Object.keys(actionTemplate).join(', ')}`);
+    }
+    return response;
+}
+
 
 
 const formatAsJsonWithCode = (response) => {
@@ -225,9 +240,9 @@ const runCommand = async ({ command }, streamId) => {
 }
 
 
-const isIndented = (numberedLine) => {
+const getIndentation = (numberedLine) => {
     const line = numberedLine.split(': ').slice(1).join(': ');
-    return line.startsWith(' ') || line.startsWith('\t') || line === '';
+    return line.length - line.trimLeft().length;
 };
 
 
@@ -238,18 +253,30 @@ const getShortContent = async (file) => {
         const document = await vscode.workspace.openTextDocument(file);
         fileContents = addLineNumbers(document.getText());
     } catch (e) { }
-    // include only lines that are not indented. Note that the line numbers are already added. Insert a line with '...' where the code is removed
-    const f = [];
-    for (let i = 0; i < fileContents.length; i++) {
-        if (isIndented(fileContents[i])) {
-            if (f[f.length - 1] !== '...') {
-                f.push('...');
-            }
-        } else {
-            f.push(fileContents[i]);
-        }
-    }
-    return f.join('\n');
+   // include only lines that are not indented. Note that the line numbers are already added. Insert a line with '...' where the code is removed
+   let lines = fileContents;
+   console.log('lines', lines);
+   let currentIndentation = 16;
+   while(lines.filter(i => i!=='...').length > 20) {
+       currentIndentation -= 1;
+       // remove lines with indentation
+       lines = fileContents.map(line => getIndentation(line) <= currentIndentation ? line : '...');
+       console.log(lines.filter(i => i!=='...').length, currentIndentation);
+   }
+   // merge consecutive lines with '...'
+   console.log('lines', lines);
+   let output = [];
+   for (let line of lines) {
+       if (line === '...') {
+           if (output[output.length - 1] !== '...') {
+               output.push(line);
+           }
+       } else {
+           output.push(line);
+       }
+   }
+   console.log('output', output);
+   return output.join('\n');
 }
 
 
@@ -404,6 +431,7 @@ const validateAndApplyEditFile = async (message, fileEdits) => {
 const executeTask = async (message, streamId, fileEdits) => {
     // console.log('executeTask', message);
     try {
+        validateResponse(message);
         switch (message.action) {
             case 'run command':
                 return [await runCommand(message, streamId), fileEdits];
