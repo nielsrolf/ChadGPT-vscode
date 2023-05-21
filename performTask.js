@@ -95,7 +95,7 @@ const parseResponse = (responseMsg) => {
         // filter only lines that are in the new range
         const codeLines = responseParts[1].trim().split('\n');
         const newLines = codeLines.map(line => {
-            // console.log('checkinf if we should use', line);
+            // // console.log('checkinf if we should use', line);
             const lineNum = parseInt(line.split(':')[0]);
             if (lineNum >= response.start)
                 // remove line numbers (e.g. '10:') from the response if they exist
@@ -106,7 +106,7 @@ const parseResponse = (responseMsg) => {
 
         }).filter(line => line !== null);
         response.content = newLines.join('\n');
-        // console.log({codeLines, newLines, response})
+        // // console.log({codeLines, newLines, response})
         return response;
     } else {
         return JSON.parse(responseMsg);
@@ -121,7 +121,7 @@ const validateResponse = (response) => {
     }
     const expectedKeys = Object.keys(actionTemplate);
     const actualKeys = Object.keys(response).filter(key => key !== 'content' && key !== 'output')
-    console.log({expectedKeys, actualKeys})
+    // console.log({expectedKeys, actualKeys})
     // check that all keys are present
     if((expectedKeys.some(key => !actualKeys.includes(key)))) {
         throw new Error(`Invalid response. Response must include all keys specified in the action template: ${Object.keys(actionTemplate).join(', ')}`);
@@ -168,7 +168,7 @@ const performTasksUntilDone = async (systemMsg, userMsg, initialAssistant) => {
     while (messages.length < MAX_MESSAGES) {
         let { gptResponse, responseRaw } = initialAssistant || await askForNextAction(messages);
         initialAssistant = null;
-        // console.log('gptResponse', gptResponse, responseRaw);
+        // // console.log('gptResponse', gptResponse, responseRaw);
         messages.push(
             {
                 "role": "assistant",
@@ -211,17 +211,17 @@ const askForNextAction = async (messages, retry = 4) => {
     // send messages to GPT
     // add the surrounding JSON with role: assistant / user etc
     let responseRaw = await createChatCompletion(messages);
-    // console.log('askForNextAction', responseRaw);
+    // // console.log('askForNextAction', responseRaw);
     try {
         let gptResponse = parseResponse(responseRaw);
-        // console.log('prased', gptResponse);
+        // // console.log('prased', gptResponse);
         return { gptResponse, responseRaw };
     } catch (e) {
         if (retry > 0) {
-            // console.log('retrying', retry);
+            // // console.log('retrying', retry);
             return askForNextAction(messages, retry - 1);
         }
-        // console.log('error parsing', e);
+        // // console.log('error parsing', e);
         return { gptResponse: null, responseRaw };
     }
 }
@@ -230,8 +230,8 @@ const askForNextAction = async (messages, retry = 4) => {
 // tasks
 const runCommand = async ({ command }, streamId) => {
     let output = await runCommandsInSandbox([command], streamId);
-    console.log('runCommand', {command, output});
-    // console.log('runCommand', output);
+    // console.log('runCommand', {command, output});
+    // // console.log('runCommand', output);
     return {
         "action": "run command",
         "command": command,
@@ -255,16 +255,16 @@ const getShortContent = async (file) => {
     } catch (e) { }
    // include only lines that are not indented. Note that the line numbers are already added. Insert a line with '...' where the code is removed
    let lines = fileContents;
-   console.log('lines', lines);
+   // console.log('lines', lines);
    let currentIndentation = 16;
    while(lines.filter(i => i!=='...').length > 20) {
        currentIndentation -= 1;
        // remove lines with indentation
        lines = fileContents.map(line => getIndentation(line) <= currentIndentation ? line : '...');
-       console.log(lines.filter(i => i!=='...').length, currentIndentation);
+       // console.log(lines.filter(i => i!=='...').length, currentIndentation);
    }
    // merge consecutive lines with '...'
-   console.log('lines', lines);
+   // console.log('lines', lines);
    let output = [];
    for (let line of lines) {
        if (line === '...') {
@@ -275,14 +275,14 @@ const getShortContent = async (file) => {
            output.push(line);
        }
    }
-   console.log('output', output);
+   // console.log('output', output);
    return output.join('\n');
 }
 
 
 const showFileSummary = async ({ path }) => {
     const output = await getShortContent(path);
-    // console.log('getShortContent', output);
+    // // console.log('getShortContent', output);
     return {
         "action": "show file summary",
         "path": path,
@@ -307,12 +307,12 @@ const getSectionContent = async (path, start, end) => {
 
 
 const getAbsolutePath = (path) => {
-    // console.log('getAbsolutePath', path);
+    // // console.log('getAbsolutePath', path);
     if (!path.startsWith('/')) {
         const rootDir = vscode.workspace.workspaceFolders[0].uri.path;
         path = `${rootDir}/${path}`;
     }
-    // console.log('getAbsolutePath', path);
+    // // console.log('getAbsolutePath', path);
     return path;
 }
 
@@ -332,7 +332,7 @@ const viewSection = async ({ path, start, end }) => {
 
 
 const applyDiffs = async (diff, save) => {
-    console.log('applyDiffs', diff);
+    // console.log('applyDiffs', diff);
     const document = await vscode.workspace.openTextDocument(diff.path);
     const editRange = new vscode.Range(
         new vscode.Position(parseInt(diff.start) - 1, 0),
@@ -370,7 +370,7 @@ const previewEditFile = async ({ path, start, end, content }, fileEdits) => {
     const newEnd = start + content.split('\n').length + 4;
     const endLine = Math.min(newEnd, newLinesWithNumbers.length);
     const newContent = newLinesWithNumbers.slice(startLine - 1, endLine).join('\n');
-    // console.log({content, newContent})
+    // // console.log({content, newContent})
     fileEdits.push({
         path,
         start,
@@ -429,7 +429,7 @@ const validateAndApplyEditFile = async (message, fileEdits) => {
 
 
 const executeTask = async (message, streamId, fileEdits) => {
-    // console.log('executeTask', message);
+    // // console.log('executeTask', message);
     try {
         validateResponse(message);
         switch (message.action) {
@@ -456,7 +456,7 @@ const executeTask = async (message, streamId, fileEdits) => {
                 }, fileEdits];
         }
     } catch (error) {
-        // console.log('error', error.message, error.stack);
+        // // console.log('error', error.message, error.stack);
         return [{
             "action": message.action,
             "error": `error while performing action: ${error} - please try again.`,

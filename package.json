@@ -82,6 +82,7 @@
   "dependencies": {
     "dockerode": "^3.3.5",
     "node-pty": "^0.10.1",
-    "openai": "^3.2.1"
+    "openai": "^3.2.1",
+    "stream-buffers": "^3.0.2"
   }
 }

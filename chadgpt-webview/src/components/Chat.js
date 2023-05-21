@@ -7,6 +7,7 @@ import VscodeContext from '../VscodeContext';
 
 const Chat = () => {
   const [unsortedMessages, setMessages] = useState([]);
+  // console.log("unsortedMessages", unsortedMessages[unsortedMessages.length - 1]);
   // sort messages by messageId in simple alphanumeric order
   const messagesSorted = unsortedMessages.sort((a, b) => {
     if (a.messageId < b.messageId) return -1;
@@ -24,6 +25,18 @@ const Chat = () => {
       // only push if it is not already a child
       if (!parentMessage.children.find((child) => child.messageId === message.messageId)) {
         parentMessage.children.push(message);
+      } else {
+        // if it is already a child, update the content
+        parentMessage.children = parentMessage.children.map((child) => {
+          if (child.messageId === message.messageId) {
+            return {
+              ...child,
+              content: message.content,
+              timestamp: message.timestamp,
+            };
+          }
+          return child;
+        });
       }
     } else {
       acc.push(message);
@@ -76,20 +89,26 @@ const Chat = () => {
   useWebviewListener((event) => {
     const message = event.data;
     if (message.type === "stream") {
+      // console.log("webviewlistener - streaming", {message, messagesSorted, messages});
       // check if the messageId already exists, otherwise create it
       const existingMessage = messagesSorted.find(
         (i) => i.messageId === message.messageId
       );
-      if (existingMessage) {
+      // console.log("webviewlistener - existingMessage", existingMessage)
+      if (existingMessage !== undefined && existingMessage !== null) {
+        // console.log("yo")
         const updatedMsg = {
           ...existingMessage,
           content: message.content,
-          timestamp: message.timestamp,
+          timestamp: new Date().getTime(),
         };
+        // console.log("webviewlistener - updatedMsg", updatedMsg);
         setMessages((prevMessages) => {
+          // console.log(prevMessages, updatedMsg)
           return [...prevMessages.filter(m => m.messageId !== message.messageId), updatedMsg];
         });
       } else {
+        // console.log("webviewlistener - new message", message);
         setMessages((prevMessages) => [
           ...prevMessages,
           {

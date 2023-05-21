@@ -1,13 +1,14 @@
 const Docker = require('dockerode');
 const fs = require('fs');
 const tar = require('tar-fs');
-const {streamToFrontend} = require('./frontend.js');
+const { streamToFrontend } = require('./frontend.js');
+const streamBuffers = require('stream-buffers');
 
 let vscode;
 try {
-	vscode = require('vscode');
+    vscode = require('vscode');
 } catch (e) {
-	// console.log("Could not load vscode");
+    // // console.log("Could not load vscode");
 }
 
 
@@ -35,13 +36,13 @@ async function buildImage() {
     await new Promise((resolve, reject) => {
         docker.modem.followProgress(stream, (err, res) => {
             if (err) {
-                // console.log(err);
+                // // console.log(err);
                 reject(err);
             } else {
                 resolve(res);
             }
         }, (event) => {
-            // console.log(event.stream ? event.stream.trim() : event);
+            // // console.log(event.stream ? event.stream.trim() : event);
         });
     });
 }
@@ -49,7 +50,7 @@ async function buildImage() {
 
 async function getOrCreateImage() {
     const images = await docker.listImages();
-    console.log("images", images.map(image => image.RepoTags));
+    // console.log("images", images.map(image => image.RepoTags));
     const imageExists = images.some(image => {
         return image.RepoTags.includes(imageName);
     });
@@ -75,13 +76,13 @@ async function createOrGetSandbox() {
             return docker.getContainer(existingContainers[0].Id);
         }
         // if the container is not running, remove it
-    const container = docker.getContainer(existingContainers[0].Id);
+        const container = docker.getContainer(existingContainers[0].Id);
         await container.remove();
     }
-    console.log("Creating new sandbox");
+    // console.log("Creating new sandbox");
     // get the image
     const imageInfo = await getOrCreateImage();
-    console.log("imageInfo", imageInfo);
+    // console.log("imageInfo", imageInfo);
     // define options for the container
     const workspaceFolder = vscode.workspace.workspaceFolders[0].uri.fsPath;
 
@@ -99,7 +100,7 @@ async function createOrGetSandbox() {
     };
     // create and start the container
     const container = await docker.createContainer(containerOptions);
-    console.log("container", container);
+    // console.log("container", container);
     await container.start();
     // wait 1 second
     await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -113,7 +114,7 @@ const hash = (str) => {
     for (let i = 0; i < str.length; i++) {
         hashValue = (31 * hashValue + str.charCodeAt(i)) >>> 0;
     }
-    console.log("hashValue", hashValue);
+    // console.log("hashValue", hashValue);
     return `${hashValue}`;
 };
 
@@ -137,38 +138,67 @@ async function runInSandbox(cmd, streamId) {
     cmd = cmd.replace(`\\`, `\\\\`).replace('$', '\\$');
     const cmdWritingToHistory = `${cmd} > ${getStreamFile(streamId)} 2>&1 && echo ${endToken} >> ${getStreamFile(streamId)} || echo ${endToken} >> ${getStreamFile(streamId)}`;
     const exec = await container.exec({
-        Cmd: ['screen', '-S', 'sandbox', '-X', 'stuff', `${cmdWritingToHistory}`+'\n'],
+        Cmd: ['screen', '-S', 'sandbox', '-X', 'stuff', `${cmdWritingToHistory}` + '\n'],
         AttachStderr: true,
     });
     await exec.start({ hijack: true, stdin: true });
     await new Promise((resolve) => setTimeout(resolve, 1000));
+    // console.log("waiting for end token", cmd)
     return waitForEndToken(container, endToken, streamId);
 }
 
 
+
+
 async function waitForEndToken(container, endToken, streamId) {
-    // console.log("streamId", streamId);
-    const history = await container.exec({
-        Cmd: ['cat', `${getStreamFile(streamId)}`],
-        AttachStdout: true,
-        AttachStderr: true,
-    });
-    const historyStream = await history.start({ hijack: true, stdin: true });
-    const historyOutput = await new Promise((resolve) => {
-        historyStream.on('data', async (data) => {
-            resolve(data.toString());
-            if(streamId) {
-                streamToFrontend(streamId, data.toString().split(endToken)[0]);
-            }
-        });
-    });
+    // // console.log("streamId", streamId);
+    // read the contents of th getStreamFile file
+    const historyOutput = await execAndCapture(container, ['cat', getStreamFile(streamId)]);
+    // console.log("historyOutput", historyOutput, 'streamId', streamId, 'endToken', endToken);
+    if (streamId) {
+        streamToFrontend(streamId, historyOutput.split(endToken)[0]);
+    }
     if (!historyOutput.includes(endToken)) {
+        // console.log("wait a sec then try again")
         await new Promise((resolve) => setTimeout(resolve, 1000));
         return waitForEndToken(container, endToken, streamId);
     } else {
+        // console.log("done")
         return historyOutput.split(endToken)[0];
     }
 }
+
+
+async function execAndCapture(container, cmd) {
+    try {        
+        let options = {
+            Cmd: cmd,
+            AttachStdout: true,
+            AttachStderr: true
+        };
+        
+        let exec = await container.exec(options);
+        
+        let response = await exec.start();
+        
+        let output = '';
+        response.on('data', function(chunk) {
+            output += chunk.toString();
+            // console.log("output", output)
+        });
+
+        return new Promise((resolve, reject) => {
+            response.on('end', function() {
+                resolve(output);
+            });
+            response.on('error', reject);
+        });
+    } catch (err) {
+        console.error('Error executing command', err);
+        throw err;
+    }
+}
+
 
 
 async function restartSandbox() {
@@ -189,7 +219,7 @@ async function restartSandbox() {
 
 
 async function runCommandsInSandbox(commands, streamId) {
-    // console.log("running commands:", commands, streamId);
+    // // console.log("running commands:", commands, streamId);
     // set the vscode home dir as cwd for the command
     const homeDir = vscode.workspace.workspaceFolders[0].uri.fsPath;
     // const homeDir = '/Users/nielswarncke/Documents/ChadGPT-vscode';
@@ -200,6 +230,7 @@ async function runCommandsInSandbox(commands, streamId) {
         if (typeof command == "string") {
             const tmp = await runInSandbox(command, streamId);
             output += `> ${command}\n${tmp}\n\n`;
+            // console.log(output);
         }
     }
 
@@ -210,9 +241,9 @@ async function runCommandsInSandbox(commands, streamId) {
 // restartSandbox();
 
 async function testCommands() {
-    for(let i = 0; i < 1; i++) {
+    for (let i = 0; i < 1; i++) {
         let output = await runCommandsInSandbox(['pwd', 'python music.py', 'export a=1', 'echo $a', 'pip install numpy']);
-        // console.log(output, i);
+        // // console.log(output, i);
 
     }
 }

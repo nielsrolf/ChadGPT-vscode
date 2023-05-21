@@ -3,7 +3,7 @@ import "./Message.css";
 
 
 const parseMessage = (responseMsg) => {
-    // console.log('parsing message', responseMsg);
+    // // console.log('parsing message', responseMsg);
     responseMsg = responseMsg.trim().replace('```python', '```')
         .replace('```javascript', '```')
         .replace('```bash', '```')
@@ -33,7 +33,7 @@ const parseMessage = (responseMsg) => {
             // filter only lines that are in the new range
             const codeLines = responseParts[1].trim().split('\n');
             const newLines = codeLines.map(line => {
-                // console.log('checkinf if we should use', line);
+                // // console.log('checkinf if we should use', line);
                 const lineNum = parseInt(line.split(':')[0]);
                 if (lineNum >= response.start)
                     // remove line numbers (e.g. '10:') from the response if they exist
@@ -44,7 +44,7 @@ const parseMessage = (responseMsg) => {
 
             }).filter(line => line !== null);
             response.content = newLines.join('\n');
-            // console.log({codeLines, newLines, response})
+            // // console.log({codeLines, newLines, response})
             return response;
         } else {
             let response = JSON.parse(responseMsg);
@@ -59,7 +59,7 @@ const parseMessage = (responseMsg) => {
         try {
             return JSON.parse(responseMsg);
         } catch (e) {
-            // console.log('error parsing', responseMsg);
+            // // console.log('error parsing', responseMsg);
             return {
                 "action": "Message",
                 "info": responseMsg
@@ -71,7 +71,7 @@ const parseMessage = (responseMsg) => {
 
 
 const CodeBlock = ({ code, color }) => {
-    // console.log("code", code);
+    // // console.log("code", code);
     const [isCopied, setIsCopied] = useState(false);
     if(code === undefined) {
         code = '';
@@ -115,7 +115,7 @@ const Message = ({ message, parentMessageId, setParentMessageId }) => {
             return;
         }
         setParentMessageId((prevParentMessageId) => {
-            // console.log("prevParentMessageId", prevParentMessageId);
+            // // console.log("prevParentMessageId", prevParentMessageId);
             if (prevParentMessageId === message.messageId) {
                 return "";
             } else {

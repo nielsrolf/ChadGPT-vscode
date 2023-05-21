@@ -15,7 +15,7 @@ const getShortContent = async (file) => {
 
 
 const getAdditionalContext = async (requiredContext) => {
-	// console.log(requiredContext)
+	// // console.log(requiredContext)
 	if (!requiredContext.includes(':')) {
 		return await getShortContent(requiredContext);
 	}

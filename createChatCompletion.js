@@ -2,7 +2,7 @@ let vscode;
 try {
 	vscode = require('vscode');
 } catch (e) {
-	// console.log("Could not load vscode");
+	// // console.log("Could not load vscode");
 }
 const { Configuration, OpenAIApi } = require("openai");
 
@@ -31,7 +31,7 @@ const getOpenAIKey = async () => {
 
 const getModel = async () => {
 	const model = vscode.workspace.getConfiguration().get('chadgpt.model')
-	console.log("model from settings: ", model);
+	// console.log("model from settings: ", model);
 	if (model !== undefined && model !== null && model !== "") {
 		return model;
 	}
@@ -49,7 +49,7 @@ const getModel = async () => {
 	], {
 		placeHolder: 'Please select a model'
 	});
-	console.log("modelSelection: ", modelSelection);
+	// console.log("modelSelection: ", modelSelection);
 	if (modelSelection) {
 		// Save the model to the VSCode workspace configuration
 		await vscode.workspace.getConfiguration().update('chadgpt.model', modelSelection.model, vscode.ConfigurationTarget.Global);
@@ -63,9 +63,9 @@ const getModel = async () => {
 
 
 const createChatCompletion = async (messages, retry=5) => {
-	// console.log("messages: ", messages);
+	// // console.log("messages: ", messages);
 	const model = await getModel();
-	console.log("model: ", model);
+	// console.log("model: ", model);
 	if (messages.length > 50) {
 		throw new Error("Too many messages");
 	}
@@ -86,11 +86,11 @@ const createChatCompletion = async (messages, retry=5) => {
 				}
 			})
 		});
-		// console.log("completion: ", completion);
+		// // console.log("completion: ", completion);
 		responseMsg = completion.data.choices[0].message.content;
-		// console.log("responseMsg: ", responseMsg);
+		// // console.log("responseMsg: ", responseMsg);
 	} catch (e) {
-		// console.log("OpenAI API error: ", e);
+		// // console.log("OpenAI API error: ", e);
 		if(retry === 0) {
 			await vscode.window.showErrorMessage(`OpenAI API error: ${e.message}`);
 			throw new Error("OpenAI API error");
