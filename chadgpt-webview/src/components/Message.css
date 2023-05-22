@@ -1,10 +1,12 @@
 .chat-row-assistant,
 .chat-row-system,
 .chat-row-user {
-  padding-left: 10px;
+  /* padding-left: 10px; */
   padding-top: 10px;
   margin-top: 10px;
-  width: calc(100% - 10px);
+  width: calc(100% - 2px);
+  /* width: 100%; */
+  border-left: 2px solid transparent;
 }
 
 .chat-row-assistant {

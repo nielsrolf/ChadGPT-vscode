@@ -13,43 +13,29 @@ const Chat = () => {
     if (a.messageId < b.messageId) return -1;
     if (a.messageId > b.messageId) return 1;
     return 0;
+  }).map((message) => {
+    return { ...message, children: [] };
   });
+  console.log("messagesSorted", messagesSorted);
   // group messages into children
-  const messages = messagesSorted.reduce((acc, message) => {
+  const messages = [];
+  for (let message of messagesSorted) {
     const parentMessageId = message.messageId.split(".").slice(0, -1).join(".");
-    const parentMessage = messagesSorted.find(
-      (message) => message.messageId === parentMessageId
-    );
+    const parentMessage = messagesSorted.find(i => i.messageId === parentMessageId);
     if (parentMessage) {
-      parentMessage.children = parentMessage.children || [];
-      // only push if it is not already a child
-      if (!parentMessage.children.find((child) => child.messageId === message.messageId)) {
-        parentMessage.children.push(message);
-      } else {
-        // if it is already a child, update the content
-        parentMessage.children = parentMessage.children.map((child) => {
-          if (child.messageId === message.messageId) {
-            return {
-              ...child,
-              content: message.content,
-              timestamp: message.timestamp,
-            };
-          }
-          return child;
-        });
-      }
+      parentMessage.children = parentMessage.children.filter(i => i.messageId !== message.messageId);
+      parentMessage.children.push(message);
     } else {
-      acc.push(message);
+      messages.push(message);
     }
-    return acc;
-  }, []);
-
+  }
   const [inputMessage, setInputMessage] = useState("");
   const [parentMessageId, setParentMessageId] = useState("");
   const messagesEndRef = useRef(null);
   const vscode = useContext(VscodeContext);
 
   const handleMessageSubmit = (e) => {
+    console.log("handleMessageSubmit", { inputMessage, parentMessageId });
     e.preventDefault();
     if (!inputMessage) return;
 
@@ -88,41 +74,9 @@ const Chat = () => {
 
   useWebviewListener((event) => {
     const message = event.data;
-    if (message.type === "stream") {
-      // console.log("webviewlistener - streaming", {message, messagesSorted, messages});
-      // check if the messageId already exists, otherwise create it
-      const existingMessage = messagesSorted.find(
-        (i) => i.messageId === message.messageId
-      );
-      // console.log("webviewlistener - existingMessage", existingMessage)
-      if (existingMessage !== undefined && existingMessage !== null) {
-        // console.log("yo")
-        const updatedMsg = {
-          ...existingMessage,
-          content: message.content,
-          timestamp: new Date().getTime(),
-        };
-        // console.log("webviewlistener - updatedMsg", updatedMsg);
-        setMessages((prevMessages) => {
-          // console.log(prevMessages, updatedMsg)
-          return [...prevMessages.filter(m => m.messageId !== message.messageId), updatedMsg];
-        });
-      } else {
-        // console.log("webviewlistener - new message", message);
-        setMessages((prevMessages) => [
-          ...prevMessages,
-          {
-            role: message.role,
-            content: message.content,
-            messageId: message.messageId,
-            timestamp: message.timestamp,
-          },
-        ]);
-      }
-      return;
-    }
+    console.log("webviewlistener", message);
     setMessages((prevMessages) => [
-      ...prevMessages,
+      ...prevMessages.filter((i) => i.messageId !== message.messageId),
       {
         role: message.role,
         content: message.content,

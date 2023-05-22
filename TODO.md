@@ -1,7 +1,5 @@
 todo
-- fix streaming
-- check what is  sent when responding -> should send original JSON message
-- send more context when file is small (max num indentation st lines < 20)
+
 
 Refactor
 - separate vscode API calls from rest
@@ -11,6 +9,12 @@ Refactor
 Next features
 - introduce branching in conversations with actions that again call performtask
     - better summary agent
+    - serp api action
+    - web browsing action
+        - serp api
+        - which link will have the relevant info?
+        - link -> web based browser
+
     - find relevant docs agent
     - create task
         - update todo.md

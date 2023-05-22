@@ -5,7 +5,7 @@ const { runCommandsInSandbox } = require('./runInSandbox.js');
 const { createChatCompletion } = require('./createChatCompletion');
 const { get } = require('http');
 
-const MAX_MESSAGES = 40; 
+const MAX_MESSAGES = 40;
 
 const initialPrompt = {
     "task": "Code assistant",
@@ -100,7 +100,7 @@ const parseResponse = (responseMsg) => {
             if (lineNum >= response.start)
                 // remove line numbers (e.g. '10:') from the response if they exist
                 return line.split(': ').slice(1).join(':');
-            if (isNaN(lineNum)) 
+            if (isNaN(lineNum))
                 return line;
             return null;
 
@@ -123,11 +123,11 @@ const validateResponse = (response) => {
     const actualKeys = Object.keys(response).filter(key => key !== 'content' && key !== 'output')
     // console.log({expectedKeys, actualKeys})
     // check that all keys are present
-    if((expectedKeys.some(key => !actualKeys.includes(key)))) {
+    if ((expectedKeys.some(key => !actualKeys.includes(key)))) {
         throw new Error(`Invalid response. Response must include all keys specified in the action template: ${Object.keys(actionTemplate).join(', ')}`);
     }
     // check that all keys are valid
-    if(actualKeys.some(key => !expectedKeys.includes(key))) {
+    if (actualKeys.some(key => !expectedKeys.includes(key))) {
         throw new Error(`Invalid response. Response must not include any keys not specified in the action template: ${Object.keys(actionTemplate).join(', ')}`);
     }
     return response;
@@ -183,12 +183,12 @@ const performTasksUntilDone = async (systemMsg, userMsg, initialAssistant) => {
             return gptResponse.finalMessage;
         }
         let userResponse;
-        [userResponse, fileEdits] = await executeTask(gptResponse, `${currentMsgId}.stream`, fileEdits);
+        currentMsgId = `${currentMsgId}.${new Date().getTime().toString()}`;
+        [userResponse, fileEdits] = await executeTask(gptResponse, `${currentMsgId}`, fileEdits);
         messages.push({
             "role": "user",
             "content": formatAsJsonWithCode(userResponse)
         });
-        currentMsgId = `${currentMsgId}.${new Date().getTime().toString()}`;
         await sendChatMessage(messages[messages.length - 1].role, messages[messages.length - 1].content, currentMsgId);
     }
 }
@@ -253,30 +253,30 @@ const getShortContent = async (file) => {
         const document = await vscode.workspace.openTextDocument(file);
         fileContents = addLineNumbers(document.getText());
     } catch (e) { }
-   // include only lines that are not indented. Note that the line numbers are already added. Insert a line with '...' where the code is removed
-   let lines = fileContents;
-   // console.log('lines', lines);
-   let currentIndentation = 16;
-   while(lines.filter(i => i!=='...').length > 20) {
-       currentIndentation -= 1;
-       // remove lines with indentation
-       lines = fileContents.map(line => getIndentation(line) <= currentIndentation ? line : '...');
-       // console.log(lines.filter(i => i!=='...').length, currentIndentation);
-   }
-   // merge consecutive lines with '...'
-   // console.log('lines', lines);
-   let output = [];
-   for (let line of lines) {
-       if (line === '...') {
-           if (output[output.length - 1] !== '...') {
-               output.push(line);
-           }
-       } else {
-           output.push(line);
-       }
-   }
-   // console.log('output', output);
-   return output.join('\n');
+    // include only lines that are not indented. Note that the line numbers are already added. Insert a line with '...' where the code is removed
+    let lines = fileContents;
+    // console.log('lines', lines);
+    let currentIndentation = 16;
+    while (lines.filter(i => i !== '...').length > 20) {
+        currentIndentation -= 1;
+        // remove lines with indentation
+        lines = fileContents.map(line => getIndentation(line) <= currentIndentation ? line : '...');
+        // console.log(lines.filter(i => i!=='...').length, currentIndentation);
+    }
+    // merge consecutive lines with '...'
+    // console.log('lines', lines);
+    let output = [];
+    for (let line of lines) {
+        if (line === '...') {
+            if (output[output.length - 1] !== '...') {
+                output.push(line);
+            }
+        } else {
+            output.push(line);
+        }
+    }
+    // console.log('output', output);
+    return output.join('\n');
 }
 
 

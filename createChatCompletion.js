@@ -63,7 +63,7 @@ const getModel = async () => {
 
 
 const createChatCompletion = async (messages, retry=5) => {
-	// // console.log("messages: ", messages);
+	console.log("messages: ", messages, retry);
 	const model = await getModel();
 	// console.log("model: ", model);
 	if (messages.length > 50) {

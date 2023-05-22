@@ -111,6 +111,7 @@ const CodeBlock = ({ code, color }) => {
 const Message = ({ message, parentMessageId, setParentMessageId }) => {
     const [expanded, setExpanded] = useState(true);
     const handleClick = (event) => {
+        console.log(message.children);
         if (window.getSelection().toString()) {
             return;
         }
