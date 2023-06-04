@@ -15,12 +15,12 @@ try {
 const docker = new Docker({
     socketPath: '/var/run/docker.sock',
 });
-const imageName = 'chadgpt-sandbox:latest';
+const imageName = 'nielsrolf/chadgpt-sandbox:latest';
 
 
 async function buildImage() {
     const dockerfileContents = fs.readFileSync('./Dockerfile', 'utf-8');
-    const newDockerfileContents = `${dockerfileContents}\nRUN touch /tmp/chadgpt-history \nRUN apt-get update && apt-get install -y iptables screen\nRUN update-alternatives --set iptables /usr/sbin/iptables-legacy\nRUN update-alternatives --set ip6tables /usr/sbin/ip6tables-legacy`;
+    const newDockerfileContents = `${dockerfileContents}\nRUN touch /tmp/chadgpt-history \nRUN apt-get update && apt-get install -y iptables screen\nRUN update-alternatives --set iptables /usr/sbin/iptables-legacy\nRUN update-alternatives --set ip6tables /usr/sbin/ip6tables-legacy\n`;
 
     fs.writeFileSync('./Dockerfile-sandbox', newDockerfileContents, 'utf-8');
 
@@ -29,7 +29,7 @@ async function buildImage() {
     });
 
     const stream = await docker.buildImage(tarStream, {
-        t: imageName + ':latest',
+        t: imageName,
         dockerfile: 'Dockerfile-sandbox',
     });
 
@@ -144,7 +144,11 @@ async function runInSandbox(cmd, streamId) {
     await exec.start({ hijack: true, stdin: true });
     await new Promise((resolve) => setTimeout(resolve, 1000));
     // console.log("waiting for end token", cmd)
-    return waitForEndToken(container, endToken, streamId);
+    const output = await waitForEndToken(container, endToken, streamId);
+    console.log({ output })
+    const formattedOutput = output.replace(/[\u0000-\u001F]/g, "").substring(1);
+    console.log({ formattedOutput })
+    return formattedOutput;
 }
 
 

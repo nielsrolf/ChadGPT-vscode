@@ -80,6 +80,8 @@
     "typescript": "^4.9.5"
   },
   "dependencies": {
+    "cache-manager": "^4.1.0",
+    "cache-manager-fs-binary": "^1.0.4",
     "dockerode": "^3.3.5",
     "node-pty": "^0.10.1",
     "openai": "^3.2.1",

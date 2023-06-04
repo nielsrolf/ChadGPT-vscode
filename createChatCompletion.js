@@ -5,6 +5,19 @@ try {
 	// // console.log("Could not load vscode");
 }
 const { Configuration, OpenAIApi } = require("openai");
+// const cacheManager = require('cache-manager');
+// const fsStore = require('cache-manager-fs-binary');
+const fs = require('fs');
+const crypto = require('crypto');
+
+
+function hashKey(key) {
+    return crypto
+        .createHash('sha256')
+        .update(key)
+        .digest('hex');
+}
+
 
 
 const getOpenAIKey = async () => {
@@ -62,7 +75,7 @@ const getModel = async () => {
 
 
 
-const createChatCompletion = async (messages, retry=5) => {
+const createChatCompletionUncached = async (messages, retry=5) => {
 	console.log("messages: ", messages, retry);
 	const model = await getModel();
 	// console.log("model: ", model);
@@ -99,6 +112,35 @@ const createChatCompletion = async (messages, retry=5) => {
 	}
 	return responseMsg;
 };
+
+
+async function createChatCompletion(messages) {
+	// initialize caching on disk
+	const workspaceFolder = vscode.workspace.workspaceFolders[0];
+	// key is hash of messages
+	const key = hashKey(JSON.stringify(messages));
+	const cacheDir = `${workspaceFolder.uri.fsPath}/.chadgpt/cache`;
+	// create if it doesn't exist
+	if (!fs.existsSync(cacheDir)) {
+		fs.mkdirSync(cacheDir, { recursive: true });
+	}
+	const cachePath = `${cacheDir}/${key}.json`;
+	// console.log("cachePath: ", cachePath);
+	try {
+		fs.accessSync(cachePath, fs.constants.R_OK);
+		// console.log("cache exists");
+		const cache = fs.readFileSync(cachePath, 'utf8');
+		// console.log("cache: ", cache);
+		return JSON.parse(cache);
+	} catch (e) {
+		// console.log("cache doesn't exist");
+		const responseMsg = await createChatCompletionUncached(messages);
+		// console.log("responseMsg: ", responseMsg);
+		// write to cache
+		fs.writeFileSync(cachePath, JSON.stringify(responseMsg));
+		return responseMsg;
+	}
+}
 
 
 module.exports = {
